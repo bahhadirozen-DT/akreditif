@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from docx import Document
 
 def basitleştir_metin(m):
-    return re.sub(r'[^A-Z0-9]', '', m. upper()) if m else ""
+    return re.sub(r'[^A-Z0-9]', '', m.upper()) if m else ""
 
 def dosya_oku_ve_sozluk_yap(dosya_yolu):
     sonuc = {}
@@ -99,7 +99,7 @@ def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonu
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
-    with open('kurallar.json', 'r', encoding='utf-8') as f: 
+    with open('kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json', 'r', encoding='utf-8') as f: 
         kurallar = json.load(f)
     with open("gelen_kusat.txt", 'r', encoding='utf-8') as f: 
         kusat_upper = f.read().upper()
@@ -112,15 +112,16 @@ def analiz_yurut():
     h_var = False
 
     # 1. TARİH VE VADE SÜRE ANALİZLERİ
-    y_match = re.search( r':44C:.*?(\b\d{6}\b)', kusat_upper)
-    i_match = re.search( r':48:.*?(\d+)\b', kusat_upper)
-    v_match = re.search( r'(\d+)\s*DAYS', kusat_upper)
+    y_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
+    i_match = re.search(r':48:.*?(\d+)\b', kusat_upper)
+    v_match = re.search(r'(\d+)\s*DAYS', kusat_upper)
     
     bl_tarih_nesnesi = None
     if "YUKLEME_TARIHI" in konsimento:
         try:
             bl_tarih_nesnesi = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
-        except Exception: pass
+        except Exception: 
+            pass
 
     if y_match:
         y_date = datetime.strptime(y_match.group(1), "%y%m%d")
@@ -144,7 +145,8 @@ def analiz_yurut():
             o_t = bl_tarih_nesnesi + timedelta(days=v_gun)
             f_not.append(f"Vade: Konşimentodan {v_gun} gün sonra.")
             f_not.append(f"Tahmini Ödeme Günü: {o_t.strftime('%d.%m.%Y')}")
-        except Exception: pass
+        except Exception: 
+            pass
 
     # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
@@ -165,13 +167,14 @@ def analiz_yurut():
                             h_var = True
                         else:
                             ucp_sonuc.append(("UYUMLU", "Madde 28(f)(ii): Sigorta kapsamı %110 şartını sağlıyor."))
-                    except Exception: pass
+                    except Exception: 
+                        pass
             else:
                 i_not.append(("REZERV RISKI", "Sigorta policesi sartı eksik!"))
                 h_var = True
 
     # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ
-    m_match = re.search( r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
+    m_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
     if m_match and "MAL_TANIMI" in fatura:
         k_mal, f_mal = basitleştir_metin(m_match.group(1)), basitleştir_metin(fatura["MAL_TANIMI"])
         if f_mal in k_mal or k_mal in f_mal:
@@ -190,7 +193,8 @@ def analiz_yurut():
             else:
                 e_sonuc.append(("REZERV RISKI", "Fatura tarihi yuklemeden sonra olamaz!"))
                 h_var = True
-        except Exception: pass
+        except Exception: 
+            pass
 
     # UCP 600 Madde 28(e) Sigorta Tarihi Kontrolü
     if "TARİH" in sigorta and bl_tarih_nesnesi:
@@ -201,8 +205,8 @@ def analiz_yurut():
                 h_var = True
             else:
                 ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenlenmiş."))
-        except Exception: pass
-
+        except Exception: 
+            pass
     # 4. UCP 600 MADDE 30 - QUANTITY/AMOUNT TOLERANCE KONTROLÜ
     if "TUTAR" in fatura:
         try:
