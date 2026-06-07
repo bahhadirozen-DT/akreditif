@@ -1,25 +1,9 @@
-name: Akreditif Dinamik Analiz Motoru
+name: Akreditif Otomatik Analiz Motoru
 
 on:
-  # 1. Burası Sihirli Alan: Web arayüzüne dosya seçme butonları ekler!
-  workflow_dispatch:
-    inputs:
-      kusat_dosyasi:
-        description: 'Akreditif (Swift/Kuşat) Dosya Adı (Örn: kusat.pdf veya yuklenen_dosyalar/kusat.txt)'
-        required: true
-        default: 'yuklenen_dosyalar/gelen_kusat.pdf'
-      fatura_dosyasi:
-        description: 'Fatura Dosya Adı (Örn: fatura_123.docx)'
-        required: false
-        default: 'yuklenen_dosyalar/fatura.pdf'
-      konsimento_dosyasi:
-        description: 'Konşimento Dosya Adı (Örn: bl_belgesi.png)'
-        required: false
-        default: 'yuklenen_dosyalar/konsimento.pdf'
-      sigorta_dosyasi:
-        description: 'Sigorta Poliçesi Dosya Adı (Örn: sigorta_orj.xlsx)'
-        required: false
-        default: 'yuklenen_dosyalar/sigorta.pdf'
+  push:
+    paths:
+      - 'yuklenen_dosyalar/**' # Sadece bu klasöre dosya yüklenince otomatik çalışır!
 
 jobs:
   analiz_et:
@@ -37,33 +21,46 @@ jobs:
     - name: Python Ortamını Hazırla
       uses: actions/setup-python@v4
       with:
-        python-python-version: '3.10'
+        python-version: '3.10'
 
     - name: Bağımlılıkları Yükle
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # 2. Burası Sihirli Alan: Senin panelden yazdığın farklı isimdeki dosyaları 
-    # sistemin anlayacağı standart isimlere arka planda KOPYALAR! (Asılları bozulmaz)
-    name: Dosya İsimlerini Dinamik Eşitle
+    # Sihirli Adım: Klasörün içindeki karmaşık isimli dosyaları akıllıca eşleştirir
+    - name: Dosya İsimlerini Otomatik Eşitle
       run: |
         python -c "
-        import os, shutil
+        import os, shutil, glob
         
-        inputs = {
-            'gelen_kusat': '${{ github.event.inputs.kusat_dosyasi }}',
-            'fatura': '${{ github.event.inputs.fatura_dosyasi }}',
-            'konsimento': '${{ github.event.inputs.konsimento_dosyasi }}',
-            'sigorta': '${{ github.event.inputs.sigorta_dosyasi }}'
-        }
+        klasor = 'yuklenen_dosyalar'
+        uzantilar = ['*.docx', '*.xlsx', '*.pdf', '*.png', '*.jpg', '*.jpeg', '*.txt']
         
-        for hedef_ad, kaynak_yolu in inputs.items():
-            if kaynak_yolu and os.path.exists(kaynak_yolu):
-                uzanti = os.path.splitext(kaynak_yolu)[1]
-                # Dosyayı sistemin okuyacağı klasöre kopyala
-                shutil.copy(kaynak_yolu, f'yuklenen_dosyalar/{hedef_ad}{uzanti}')
-                print(f'[BAĞLANDI] {kaynak_yolu} -> yuklenen_dosyalar/{hedef_ad}{uzanti}')
+        # Klasördeki tüm dosyaları tara
+        tum_dosyalar = []
+        for uzanti in uzantilar:
+            tum_dosyalar.extend(glob.glob(os.path.join(klasor, uzanti)))
+            
+        print(f'Saptanan dosyalar: {tum_dosyalar}')
+        
+        # Akıllı eşleştirme mantığı
+        for dosya in tum_dosyalar:
+            dosya_adi = os.path.basename(dosya).lower()
+            uzanti = os.path.splitext(dosya)[1]
+            
+            if 'fatura' in dosya_adi or 'invoice' in dosya_adi:
+                shutil.copy(dosya, f'yuklenen_dosyalar/fatura{uzanti}')
+                print(f'[EŞLEŞTİ] Fatura: {dosya} -> fatura{uzanti}')
+            elif 'kusat' in dosya_adi or 'lc' in dosya_adi or 'credit' in dosya_adi or 'swift' in dosya_adi:
+                shutil.copy(dosya, f'yuklenen_dosyalar/gelen_kusat{uzanti}')
+                print(f'[EŞLEŞTİ] Kuşat: {dosya} -> gelen_kusat{uzanti}')
+            elif 'konsimento' in dosya_adi or 'lading' in dosya_adi or 'vessel' in dosya_adi:
+                shutil.copy(dosya, f'yuklenen_dosyalar/konsimento{uzanti}')
+                print(f'[EŞLEŞTİ] Konşimento: {dosya} -> konsimento{uzanti}')
+            elif 'sigorta' in dosya_adi or 'insurance' in dosya_adi:
+                shutil.copy(dosya, f'yuklenen_dosyalar/sigorta{uzanti}')
+                print(f'[EŞLEŞTİ] Sigorta: {dosya} -> sigorta{uzanti}')
         "
 
     - name: Yapay Zeka Analiz Motorunu Çalıştır
@@ -74,5 +71,5 @@ jobs:
         git config --global user.name 'Yapay Zeka Denetçi'
         git config --global user.email 'ai-auditor@github.com'
         git add akreditif_analiz_raporu.md akreditif_analiz_raporu.docx
-        git commit -m "🤖 Yapay Zeka Analiz Raporu Güncellendi [Automated]" || echo "Değişiklik yok."
+        git commit -m "🤖 Otomatik Analiz Raporu Güncellendi [skip ci]" || echo "Değişiklik yok."
         git push
