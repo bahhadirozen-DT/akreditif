@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime, timedelta
 from docx import Document
+from docx.shared import Pt, RGBColor
 
 def basitleştir_metin(m):
     return re.sub(r'[^A-Z0-9]', '', m.upper()) if m else ""
@@ -56,33 +57,78 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_va
 
 def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var):
     doc = Document()
-    doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
-    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
-    doc.add_paragraph("=" * 50)
     
+    # Büyük Başlık
+    title = doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
+    title.runs[0].font.name = 'Arial'
+    title.runs[0].font.size = Pt(18)
+    title.runs[0].font.bold = True
+    
+    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
+    doc.add_paragraph("=" * 60)
+    
+    # 1. Tarih Analizi
     doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
-    for n in t_not: doc.add_paragraph(n)
+    for n in t_not:
+        doc.add_paragraph(n)
         
+    # 2. Finansal Vade
     doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
     if f_not:
         for n in f_not: doc.add_paragraph(n)
-    else: doc.add_paragraph("ℹ️ Finansal takvim hesaplanamadı.")
+    else:
+        doc.add_paragraph("ℹ️ Vadeli ödeme takvimi hesaplanamadı.")
 
+    # 3. Incoterms
     doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
-    for d, m in i_not: doc.add_paragraph(f"[{d}] {m}")
+    for d, m in i_not:
+        p = doc.add_paragraph()
+        run = p.add_run(f"[{d}] {m}")
+        if "UYUMLU" in d or "BİLGİ" in d:
+            run.font.color.rgb = RGBColor(0, 102, 204) # Mavi
+        else:
+            run.font.color.rgb = RGBColor(255, 0, 0) # Kırmızı
 
-    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü', level=2)
-    for d, m in e_sonuc: doc.add_paragraph(f"[{d}] {m}")
+    # 4. Çapraz Evrak
+    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü (Rezerv Önleme)', level=2)
+    for d, m in e_sonuc:
+        p = doc.add_paragraph()
+        run = p.add_run(f"[{d}] {m}")
+        if "UYUMLU" in d:
+            run.font.color.rgb = RGBColor(0, 128, 0) # Yeşil
+        else:
+            run.font.color.rgb = RGBColor(255, 0, 0) # Kırmızı
 
+    # 5. Zorunlu Kurallar
     doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
-    for d, m in z_sonuc: doc.add_paragraph(f"[{d}] {m}")
+    for d, m in z_sonuc:
+        p = doc.add_paragraph()
+        run = p.add_run(f"[{d}] {m}")
+        if d == "UYUMLU":
+            run.font.color.rgb = RGBColor(0, 128, 0)
+        else:
+            run.font.color.rgb = RGBColor(255, 0, 0)
             
+    # 6. SWIFT Kontrolleri
     doc.add_heading('6. UCP 600 Maddeleri ve SWIFT Kontrolleri', level=2)
-    for d, m in k_sonuc: doc.add_paragraph(f"[{d}] {m}")
+    for d, m in k_sonuc:
+        p = doc.add_paragraph()
+        run = p.add_run(f"[{d}] {m}")
+        if d == "TESPİT EDİLDİ":
+            run.font.color.rgb = RGBColor(128, 128, 128) # Gri
+        else:
+            run.font.color.rgb = RGBColor(204, 102, 0) # Turuncu
 
-    doc.add_paragraph("=" * 50)
-    if h_var: doc.add_paragraph("🚨 SONUÇ: Rezerv riskleri tespit edildi!")
-    else: doc.add_paragraph("🎉 SONUÇ: Altyapı tam uyumlu.")
+    doc.add_paragraph("=" * 60)
+    p_son = doc.add_paragraph()
+    if h_var:
+        run_s = p_son.add_run("🚨 SONUÇ: Rezerv riskleri tespit edildi! Bankaya teslim etmeyin.")
+        run_s.font.bold = True
+        run_s.font.color.rgb = RGBColor(255, 0, 0)
+    else:
+        run_s = p_son.add_run("🎉 SONUÇ: Altyapı tam uyumlu. Güvenle yükleme yapabilirsiniz.")
+        run_s.font.bold = True
+        run_s.font.color.rgb = RGBColor(0, 128, 0)
 
     doc.save("akreditif_analiz_raporu.docx")
 
