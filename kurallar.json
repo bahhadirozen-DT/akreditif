@@ -1,0 +1,23 @@
+{
+  "zorunlu_kurallar": [
+    {"anahtar": "UCP 600", "aciklama": "Madde 1: Akreditifin UCP 600 kurallarına tabi olduğu açıkça belirtilmelidir."},
+    {"anahtar": "IRREVOCABLE", "aciklama": "Madde 3: Akreditif gayrikabili rücu (dönülemez) olmalıdır."}
+  ],
+  "kritik_kontroller": [
+    {"anahtar": "ISBP", "aciklama": "Uluslararası standart belge inceleme kurallarına uyum (ISBP 823)."},
+    {"anahtar": ":41A:", "aciklama": "Madde 6: Akreditifin geçerli olduğu banka ve ödeme şekli."},
+    {"anahtar": ":42C:", "aciklama": "Madde 6 & 7: Vadeli akreditiflerde poliçe ve vade detayları."},
+    {"anahtar": ":43P:", "aciklama": "Madde 31: Kısmi yükleme izni (Partial Shipment)."},
+    {"anahtar": ":43T:", "aciklama": "Madde 31: Aktarma izni (Transshipment)."},
+    {"anahtar": ":44E:", "aciklama": "Yükleme limanı / havaalanı tanımı."},
+    {"anahtar": ":44F:", "aciklama": "Boşaltma limanı / varış yeri tanımı."},
+    {"anahtar": ":44C:", "aciklama": "Madde 6: En geç yükleme tarihi (Latest Date of Shipment)."},
+    {"anahtar": ":48:", "aciklama": "Madde 14: Belgelerin ibraz süresi. Belirtilmemişse en fazla 21 gündür."},
+    {"anahtar": ":49:", "aciklama": "Madde 8: Teyit talimatı (Confirmation Instructions)."},
+    {"anahtar": ":46A:", "aciklama": "Madde 14: İstenen belgeler (Fatura, Konşimento, Sigorta vb.)."},
+    {"anahtar": ":47A:", "aciklama": "Ek şartlar: Operasyonu riske sokabilecek özel maddeler."},
+    {"anahtar": ":71D:", "aciklama": "Madde 37: Banka masraflarının kime ait olduğu."},
+    {"anahtar": ":39A:", "aciklama": "Madde 30: Miktar ve tutardaki toleranslar (+/- %10 vb.)."},
+    {"anahtar": "110%", "aciklama": "Madde 28: Sigorta kapsamı en az CIF/CIP tutarının %110'u olmalıdır."}
+  ]
+}
