@@ -59,3 +59,4 @@ jobs:
         git add akreditif_analiz_raporu.docx akreditif_analiz_raporu.md
         git commit -m "Gelişmiş Çapraz Evrak ve Liste Raporu Güncellendi [skip ci]" || echo "Değişiklik yok"
         git push
+        
