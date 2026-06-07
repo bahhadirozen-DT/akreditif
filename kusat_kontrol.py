@@ -207,6 +207,7 @@ def analiz_yurut():
                 ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenlenmiş."))
         except Exception: 
             pass
+
     # 4. UCP 600 MADDE 30 - QUANTITY/AMOUNT TOLERANCE KONTROLÜ
     if "TUTAR" in fatura:
         try:
