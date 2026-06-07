@@ -41,5 +41,19 @@
     {"madde": "Art 37", "anahtar": "USER CHARGES", "aciklama": "Masrafların kime ait olduğu (:71D:) ve yabancı banka masrafları sorumluluğu."},
     {"madde": "Art 38", "anahtar": "TRANSFERABLE", "aciklama": "Devredilebilir akreditifler (Transferable L/C) ve birinci/ikinci lehtar ilişkileri."},
     {"madde": "Art 39", "anahtar": "ASSIGNMENT", "aciklama": "Akreditif alacağının temliki (hukuki devri) hakları."}
+  ],
+  "isbp_kurallari": [
+    {
+      "orijinal": "LIMITED",
+      "karsiliklar": ["LTD", "LTD.", "LIMITED LIABILITY COMPANY"]
+    },
+    {
+      "orijinal": "COMPANY",
+      "karsiliklar": ["CO", "CO.", "COMP."]
+    },
+    {
+      "orijinal": "INTERNATIONAL",
+      "karsiliklar": ["INTL", "INTL.", "INTERN."]
+    }
   ]
 }
