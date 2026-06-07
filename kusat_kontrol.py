@@ -4,13 +4,26 @@ import re
 from datetime import datetime, timedelta
 from docx import Document
 
-def basitleştir_metin(m):
-    if not m:
+def normalize_text(text):
+    """
+    Çapraz evrak kontrolünde mal tanımlarını normalize eder.
+    Metni temizler, Türkçe karakterleri dönüştürür ve gereksiz boşlukları kaldırır.
+    """
+    if not text:
         return ""
     # Türkçe karakterleri İngilizce muadillerine dönüştürerek regex güvenliğini artırıyoruz
     tablo = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
-    m = m.upper().translate(tablo)
-    return re.sub(r'[^A-Z0-9]', '', m)
+    text = text.upper().translate(tablo)
+    # Sadece Alfanümerik karakterleri tut ve normalize et
+    cleaned = re.sub(r'[^A-Z0-9\s]', '', text)
+    return " ".join(cleaned.strip().split())
+
+def load_rules(config_path="kurallar.json"):
+    """JSON tabanlı kuralları güvenli bir şekilde yükler."""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Kritik Hata: {config_path} bulunamadı!")
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def dosya_oku_ve_sozluk_yap(dosya_yolu):
     sonuc = {}
@@ -19,7 +32,7 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
             for satir in f:
                 if ':' in satir:
                     a, d = satir.split(':', 1)
-                    # Türkçe karakter uyumluluğu için TARIH gibi anahtarları standartlaştırıyoruz
+                    # Türkçe karakter uyumluluğu için TARIH gibi anahtar kelimeleri standartlaştırıyoruz
                     anahtar = a.strip().upper().replace("İ", "I")
                     sonuc[anahtar] = d.strip()
     return sonuc
@@ -90,13 +103,14 @@ def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonu
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
+    # Dinamik kural dosyası seçimi ve load_rules mimarisinin uygulanması
     kural_dosyasi = 'kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json'
-    if not os.path.exists(kural_dosyasi):
-        print(f"Hata: {kural_dosyasi} bulunamadı!")
+    
+    try:
+        kurallar = load_rules(kural_dosyasi)
+    except FileNotFoundError as e:
+        print(e)
         return
-
-    with open(kural_dosyasi, 'r', encoding='utf-8') as f:
-        kurallar = json.load(f)
         
     if not os.path.exists("gelen_kusat.txt"):
         print("Hata: gelen_kusat.txt bulunamadı!")
@@ -132,8 +146,6 @@ def analiz_yurut():
         t_not.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
         
         if bl_tarih_nesnesi:
-            # Analiz gününün tarihi yerine gerçek ibraz kontrol mantığı simüle edildi.
-            # Eğer yükleme tarihi, 44C'deki en geç yükleme tarihini aştıysa kontrolü buraya ekleyebilirsiniz.
             if bl_tarih_nesnesi > y_date:
                 ucp_sonuc.append(("REZERV RİSKİ", f"Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
                 h_var = True
@@ -170,10 +182,12 @@ def analiz_yurut():
                 i_not.append(("REZERV RISKI", "Sigorta policesi sartı eksik!"))
                 h_var = True
 
-    # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ
+    # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ (Yeni normalize_text ile)
     m_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
     if m_match and "MAL_TANIMI" in fatura:
-        k_mal, f_mal = basitleştir_metin(m_match.group(1)), basitleştir_metin(fatura["MAL_TANIMI"])
+        k_mal = normalize_text(m_match.group(1))
+        f_mal = normalize_text(fatura["MAL_TANIMI"])
+        
         if f_mal in k_mal or k_mal in f_mal:
             e_sonuc.append(("UYUMLU", "Mal tanimi fatura ile uyusuyor."))
             ucp_sonuc.append(("UYUMLU", "Madde 18(c): Ticari faturadaki mal tanımı akreditifle tam olarak uyuşuyor."))
@@ -182,7 +196,6 @@ def analiz_yurut():
             ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle kelimesi kelimesine (exactly) uyuşmuyor!"))
             h_var = True
 
-    # "TARİH" yerine standartlaştırılmış "TARIH" kullanılıyor
     if "TARIH" in fatura and bl_tarih_nesnesi:
         try:
             f_d = datetime.strptime(fatura["TARIH"].strip(), "%d.%m.%Y")
@@ -245,7 +258,7 @@ def analiz_yurut():
     # RAPORLARI DOSYALARA YAZ
     word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    print("Analiz tamamlandı. Raporlar başarıyla oluşturuldu.")
+    print("Analiz başarıyla tamamlandı ve raporlar üretildi.")
 
 if __name__ == "__main__":
     analiz_yurut()
