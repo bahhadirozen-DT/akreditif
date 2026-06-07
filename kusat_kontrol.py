@@ -111,7 +111,6 @@ def analiz_yurut():
     tarih_notlari, finans_notlari, evrak_sonuclar, zorunlu_sonuclar, kritik_sonuclar, incoterms_notlari = [], [], [], [], [], []
     hata_var_mi = False
 
-    # 1. TARİH ANALİZİ
     yukleme_tarihi_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
     ibraz_suresi_match = re.search(r':48:.*?(\d+)\b', kusat_upper)
     if yukleme_tarihi_match:
@@ -123,7 +122,6 @@ def analiz_yurut():
     else:
         tarih_notlari.append("Küşatta resmi bir en geç yükleme tarihi (:44C:) saptanamadı.")
 
-    # 2. FINANSAL VADE
     vade_match = re.search(r'(\d+)\s*DAYS', kusat_upper)
     if vade_match and "YUKLEME_TARIHI" in konsimento:
         try:
@@ -137,7 +135,6 @@ def analiz_yurut():
                 finans_notlari.append("UYUMLULUK UYARISI: Ödeme günü hafta sonuna denk geliyor! Banka ilk iş günü işlem yapabilir.")
         except Exception: pass
 
-    # 3. INCOTERMS VE SİGORTA DENETİMİ (Yeni Akıllı Bölüm)
     incoterm_listesi = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
     bulunan_incoterm = None
     for i in incoterm_listesi:
@@ -147,8 +144,6 @@ def analiz_yurut():
             
     if bulunan_incoterm:
         incoterms_notlari.append(f"BİLGİ: Küşat metninde saptanan teslim şekli: **{bulunan_incoterm}**")
-        
-        # CIF veya CIP durumunda sigorta poliçesi kontrolü (UCP 600 Art 28)
         if bulunan_incoterm in ["CIF", "CIP"]:
             incoterms_notlari.append(f"📝 KURAL: {bulunan_incoterm} teslim şeklinde satıcı sigorta yaptırmak zorundadır.")
             if "INSURANCE" in kusat_upper or "110%" in kusat_upper:
@@ -161,7 +156,6 @@ def analiz_yurut():
     else:
         incoterms_notlari.append("⚠️ UYARI: Küşat metninde standart bir Incoterms (FOB, CIF vb.) kodu saptanamadı! Lütfen teslim şeklini manuel kontrol edin.")
 
-    # 4. ÇAPRAZ EVRAK KONTROLÜ
     mal_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
     if mal_match and "MAL_TANIMI" in fatura:
         kusat_mal = basitleştir_metin(mal_match.group(1))
@@ -183,7 +177,6 @@ def analiz_yurut():
                 hata_var_mi = True
         except Exception: pass
 
-    # 5 & 6. UCP STANDART KONTROLLERİ
     for kural in kurallar['zorunlu_kurallar']:
         if kural['anahtar'].upper() in kusat_upper:
             zorunlu_sonuclar.append(("UYUMLU", f"... '{kural['anahtar']}' doğrulandı."))
@@ -192,16 +185,15 @@ def analiz_yurut():
             hata_var_mi = True
             
     for kural in kurallar['kritik_kontroller']:
-    if kural['anahtar'].upper() in kusat_upper:
-        kritik_sonuclar.append(("TESPİT EDİLDİ", f"[{kural['madde']}] {kural['anahtar']} -> {kural['aciklama']}"))
-    else:
-        kritik_sonuclar.append(("KONTROL ET", f"[{kural['madde']}] '{kural['anahtar']}' doğrudan geçmiyor. ({kural['aciklama']})"))
+        if kural['anahtar'].upper() in kusat_upper:
+            kritik_sonuclar.append(("TESPİT EDİLDİ", f"[{kural['madde']}] {kural['anahtar']} -> {kural['aciklama']}"))
+        else:
+            kritik_sonuclar.append(("KONTROL ET", f"[{kural['madde']}] '{kural['anahtar']}' doğrudan geçmiyor. ({kural['aciklama']})"))
 
-word_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
-markdown_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
-
-# Raporların GitHub Actions üzerinde hata vermeden sorunsuz yüklenmesi için başarılı çıkış
-exit(0)
+    word_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
+    markdown_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
+    exit(0)
 
 if __name__ == "__main__":
     analiz_yurut()
+
