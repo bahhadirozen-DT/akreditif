@@ -1,6 +1,6 @@
 # 📋 AKREDİTİF GELİŞMİŞ DENETİM RAPORU
 
-**Rapor Tarihi:** 07.06.2026 18:19
+**Rapor Tarihi:** 07.06.2026 18:37
 ---
 
 ## 1. Kritik Süreler ve Vade Analizi
@@ -63,4 +63,4 @@
 * ⚠️ **[KONTROL ET]** [Art 39] ASSIGNMENT doğrudan geçmiyor.
 
 ---
-### 🚨 SONUÇ: Rezerv riskleri tespit edildi!
+### 🚨 SONUÇ: Rezerv riskleri tespit edildi! Kontrol etmeden bankaya vermeyin.
