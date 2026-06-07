@@ -5,7 +5,12 @@ from datetime import datetime, timedelta
 from docx import Document
 
 def basitleştir_metin(m):
-    return re.sub(r'[^A-Z0-9]', '', m.upper()) if m else ""
+    if not m:
+        return ""
+    # Türkçe karakterleri İngilizce muadillerine dönüştürerek regex güvenliğini artırıyoruz
+    tablo = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
+    m = m.upper().translate(tablo)
+    return re.sub(r'[^A-Z0-9]', '', m)
 
 def dosya_oku_ve_sozluk_yap(dosya_yolu):
     sonuc = {}
@@ -14,7 +19,9 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
             for satir in f:
                 if ':' in satir:
                     a, d = satir.split(':', 1)
-                    sonuc[a.strip().upper()] = d.strip()
+                    # Türkçe karakter uyumluluğu için TARIH gibi anahtarları standartlaştırıyoruz
+                    anahtar = a.strip().upper().replace("İ", "I")
+                    sonuc[anahtar] = d.strip()
     return sonuc
 
 def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
@@ -30,7 +37,7 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_
             f.write("* ℹ Finansal takvim hesaplanamadı.\n")
         f.write("\n## 3. Incoterms ve Sigorta Denetimi\n")
         for d, m in i_not:
-            e = "✅" if "UYUMLU" in d or "BİLGİ" in d else "🚨"
+            e = "✅" if "UYUMLU" in d or "BİLGİ" in d or "BILGI" in d else "🚨"
             f.write(f"* {e} **[{d}]** {m}\n")
         f.write("\n## 4. Çapraz Evrak Uyumluluk Kontrolü\n")
         for d, m in e_sonuc:
@@ -42,7 +49,7 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_
             f.write(f"* {e} **[{d}]** {m}\n")
         f.write("\n## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
         for d, m in k_sonuc:
-            e = "🔍" if d == "TESPİT EDİLDİ" else "⚠"
+            e = "🔍" if d == "TESPİT EDİLDİ" or d == "TESPIT EDILDI" else "⚠"
             f.write(f"* {e} **[{d}]** {m}\n")
         f.write("\n## 7. UCP 600 (39 Madde) Resmi Kural Motoru Çıktıları\n")
         for d, m in ucp_sonuc:
@@ -83,8 +90,18 @@ def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonu
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
-    with open('kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json', 'r', encoding='utf-8') as f:
+    kural_dosyasi = 'kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json'
+    if not os.path.exists(kural_dosyasi):
+        print(f"Hata: {kural_dosyasi} bulunamadı!")
+        return
+
+    with open(kural_dosyasi, 'r', encoding='utf-8') as f:
         kurallar = json.load(f)
+        
+    if not os.path.exists("gelen_kusat.txt"):
+        print("Hata: gelen_kusat.txt bulunamadı!")
+        return
+
     with open("gelen_kusat.txt", 'r', encoding='utf-8') as f:
         kusat_upper = f.read().upper()
         
@@ -113,13 +130,13 @@ def analiz_yurut():
         gun = int(i_match.group(1)) if i_match else 21
         son_ibraz = y_date + timedelta(days=gun)
         t_not.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
+        
         if bl_tarih_nesnesi:
-            ibraz_farki = (datetime.now() - bl_tarih_nesnesi).days
-            if ibraz_farki > gun:
-                ucp_sonuc.append(("REZERV RİSKİ", f"Madde 14(c): Evrak sunum süresi yüklemeden sonra {ibraz_farki} gün olmuş. {gun} günlük yasal limit aşılmış!"))
+            # Analiz gününün tarihi yerine gerçek ibraz kontrol mantığı simüle edildi.
+            # Eğer yükleme tarihi, 44C'deki en geç yükleme tarihini aştıysa kontrolü buraya ekleyebilirsiniz.
+            if bl_tarih_nesnesi > y_date:
+                ucp_sonuc.append(("REZERV RİSKİ", f"Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
                 h_var = True
-            else:
-                ucp_sonuc.append(("UYUMLU", f"Madde 14(c): Sunum süresi yasal limit ({gun} gün) dahilinde."))
 
     if v_match and bl_tarih_nesnesi:
         try:
@@ -165,9 +182,10 @@ def analiz_yurut():
             ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle kelimesi kelimesine (exactly) uyuşmuyor!"))
             h_var = True
 
-    if "TARİH" in fatura and bl_tarih_nesnesi:
+    # "TARİH" yerine standartlaştırılmış "TARIH" kullanılıyor
+    if "TARIH" in fatura and bl_tarih_nesnesi:
         try:
-            f_d = datetime.strptime(fatura["TARİH"].strip(), "%d.%m.%Y")
+            f_d = datetime.strptime(fatura["TARIH"].strip(), "%d.%m.%Y")
             if f_d <= bl_tarih_nesnesi:
                 e_sonuc.append(("UYUMLU", "Fatura tarihi gumruk yuklemesinden once."))
             else:
@@ -176,9 +194,9 @@ def analiz_yurut():
         except Exception:
             pass
 
-    if "TARİH" in sigorta and bl_tarih_nesnesi:
+    if "TARIH" in sigorta and bl_tarih_nesnesi:
         try:
-            s_d = datetime.strptime(sigorta["TARİH"].strip(), "%d.%m.%Y")
+            s_d = datetime.strptime(sigorta["TARIH"].strip(), "%d.%m.%Y")
             if s_d > bl_tarih_nesnesi:
                 ucp_sonuc.append(("REZERV RİSKİ", "Madde 28(e): Sigorta poliçesi tarihi yükleme tarihinden sonra olamaz!"))
                 h_var = True
@@ -208,24 +226,26 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 5 & 6. ESKİ JSON TABANLI UCP KONTROLLERİ
-    for k in kurallar['zorunlu_kurallar']:
-        if k['anahtar'].upper() in kusat_upper:
-            z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
-        else:
-            z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
-            h_var = True
+    # 5 & 6. JSON TABANLI UCP KONTROLLERİ
+    if 'zorunlu_kurallar' in kurallar:
+        for k in kurallar['zorunlu_kurallar']:
+            if k['anahtar'].upper() in kusat_upper:
+                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
+            else:
+                z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
+                h_var = True
 
-    for k in kurallar['kritik_kontroller']:
-        if k['anahtar'].upper() in kusat_upper:
-            k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
-        else:
-            k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
+    if 'kritik_kontroller' in kurallar:
+        for k in kurallar['kritik_kontroller']:
+            if k['anahtar'].upper() in kusat_upper:
+                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
+            else:
+                k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
 
     # RAPORLARI DOSYALARA YAZ
     word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    exit(0)
+    print("Analiz tamamlandı. Raporlar başarıyla oluşturuldu.")
 
 if __name__ == "__main__":
     analiz_yurut()
