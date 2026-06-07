@@ -11,6 +11,7 @@ jobs:
   analiz_et:
     runs-on: ubuntu-latest
 
+    # Robotun yeni rapor dosyalarını repoya yazabilmesi için gerekli izin
     permissions:
       contents: write
 
@@ -29,11 +30,12 @@ jobs:
     - name: Akreditif Analiz Motorunu Çalıştır
       run: python kusat_kontrol.py
 
-    - name: Word Raporunu Reponya Commit Et
-      if: always()
+    # Hem Word dosyasını hem de internetten okunacak Liste (Markdown) dosyasını repoya yükler
+    - name: Raporları Otomatik Commit ve Push Et
+      if: always() # Analizde hata/rezerv çıksa bile rapor dosyalarını yüklemesi için
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action Robotu"
-        git add akreditif_analiz_raporu.docx
-        git commit -m "Gelişmiş Çapraz Evrak ve Finans Raporu Oluşturuldu [skip ci]" || echo "Değişiklik yok"
+        git add akreditif_analiz_raporu.docx akreditif_analiz_raporu.md
+        git commit -m "Gelişmiş Çapraz Evrak ve Liste Raporu Güncellendi [skip ci]" || echo "Değişiklik yok"
         git push
