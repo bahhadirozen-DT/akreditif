@@ -1,22 +1,41 @@
 import json
 import os
 import re
+import sys
 from datetime import datetime, timedelta
 from docx import Document
 
 def normalize_text(text):
     """
     Çapraz evrak kontrolünde mal tanımlarını normalize eder.
-    Metni temizler, Türkçe karakterleri dönüştürür ve gereksiz boşlukları kaldırır.
+    Ölçü ve oran bildiren %, /, . gibi kritik karakterleri korur.
     """
     if not text:
         return ""
     # Türkçe karakterleri İngilizce muadillerine dönüştürerek regex güvenliğini artırıyoruz
     tablo = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
     text = text.upper().translate(tablo)
-    # Sadece Alfanümerik karakterleri tut ve normalize et
-    cleaned = re.sub(r'[^A-Z0-9\s]', '', text)
+    # Ölçü ve oran bildiren %, /, . karakterlerini koruyarak temizleme yapıyoruz
+    cleaned = re.sub(r'[^A-Z0-9\s%/\.]', '', text)
     return " ".join(cleaned.strip().split())
+
+def safe_float(val_str):
+    """
+    Farklı finansal formatlardaki (1,500.00 veya 1.500,00) tutar metinlerini 
+    güvenli bir şekilde float tipine dönüştürür.
+    """
+    if not val_str:
+        return 0.0
+    val_str = val_str.strip()
+    # Eğer metinde hem nokta hem virgül varsa veya sadece virgül kuruş ayırıcı olarak kullanılmışsa
+    if (',' in val_str and '.' in val_str and val_str.rfind(',') > val_str.rfind('.')) or (',' in val_str and '.' not in val_str):
+        val_str = val_str.replace('.', '').replace(',', '.')
+    else:
+        val_str = val_str.replace(',', '')
+    
+    # Sayı ve nokta dışındaki tüm yabancı karakterleri temizle
+    val_str = re.sub(r'[^0-9.]', '', val_str)
+    return float(val_str) if val_str else 0.0
 
 def load_rules(config_path="kurallar.json"):
     """JSON tabanlı kuralları güvenli bir şekilde yükler."""
@@ -32,7 +51,6 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
             for satir in f:
                 if ':' in satir:
                     a, d = satir.split(':', 1)
-                    # Türkçe karakter uyumluluğu için TARIH gibi anahtar kelimeleri standartlaştırıyoruz
                     anahtar = a.strip().upper().replace("İ", "I")
                     sonuc[anahtar] = d.strip()
     return sonuc
@@ -62,7 +80,7 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_
             f.write(f"* {e} **[{d}]** {m}\n")
         f.write("\n## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
         for d, m in k_sonuc:
-            e = "🔍" if d == "TESPİT EDİLDİ" or d == "TESPIT EDILDI" else "⚠"
+            e = "🔍" if d in ["TESPİT EDİLDİ", "TESPIT EDILDI"] else "⚠"
             f.write(f"* {e} **[{d}]** {m}\n")
         f.write("\n## 7. UCP 600 (39 Madde) Resmi Kural Motoru Çıktıları\n")
         for d, m in ucp_sonuc:
@@ -103,18 +121,17 @@ def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonu
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
-    # Dinamik kural dosyası seçimi ve load_rules mimarisinin uygulanması
     kural_dosyasi = 'kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json'
     
     try:
         kurallar = load_rules(kural_dosyasi)
     except FileNotFoundError as e:
         print(e)
-        return
+        sys.exit(1) # GitHub Actions ve CI/CD pipeline'ı kırmak için sys.exit(1) eklendi
         
     if not os.path.exists("gelen_kusat.txt"):
         print("Hata: gelen_kusat.txt bulunamadı!")
-        return
+        sys.exit(1)
 
     with open("gelen_kusat.txt", 'r', encoding='utf-8') as f:
         kusat_upper = f.read().upper()
@@ -145,10 +162,9 @@ def analiz_yurut():
         son_ibraz = y_date + timedelta(days=gun)
         t_not.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
         
-        if bl_tarih_nesnesi:
-            if bl_tarih_nesnesi > y_date:
-                ucp_sonuc.append(("REZERV RİSKİ", f"Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
-                h_var = True
+        if bl_tarih_nesnesi and bl_tarih_nesnesi > y_date:
+            ucp_sonuc.append(("REZERV RİSKİ", f"Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
+            h_var = True
 
     if v_match and bl_tarih_nesnesi:
         try:
@@ -169,10 +185,11 @@ def analiz_yurut():
                 i_not.append(("UYUMLU", "Sigorta sartlari eksiksiz saptandi."))
                 if "TUTAR" in fatura and "SIGORTA_TUTARI" in sigorta:
                     try:
-                        f_tutar = float(fatura["TUTAR"].replace(",", ".").strip())
-                        s_tutar = float(sigorta["SIGORTA_TUTARI"].replace(",", ".").strip())
+                        # safe_float ile güvenli sayı dönüşümü
+                        f_tutar = safe_float(fatura["TUTAR"])
+                        s_tutar = safe_float(sigorta["SIGORTA_TUTARI"])
                         if s_tutar < (f_tutar * 1.10):
-                            ucp_sonuc.append(("REZERV RİSKİ", f"Madde 28(f)(ii): Sigorta tutarı ({s_tutar}), fatura CIF değerinin %110'undan ({(f_tutar*1.10)}) az!"))
+                            ucp_sonuc.append(("REZERV RİSKİ", f"Madde 28(f)(ii): Sigorta tutarı ({s_tutar:,.2f}), fatura CIF değerinin %110'undan ({(f_tutar*1.10):,.2f}) az!"))
                             h_var = True
                         else:
                             ucp_sonuc.append(("UYUMLU", "Madde 28(f)(ii): Sigorta kapsamı %110 şartını sağlıyor."))
@@ -182,8 +199,12 @@ def analiz_yurut():
                 i_not.append(("REZERV RISKI", "Sigorta policesi sartı eksik!"))
                 h_var = True
 
-    # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ (Yeni normalize_text ile)
-    m_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
+    # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ
+    # Önce :45A: alanını arar, bulamazsa çok satırlı :46A: bloğunun başını çekerek sonraki alana kadar yakalar
+    m_match = re.search(r':45A:([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
+    if not m_match:
+        m_match = re.search(r':46A:.*?COMMERCIAL INVOICE([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
+
     if m_match and "MAL_TANIMI" in fatura:
         k_mal = normalize_text(m_match.group(1))
         f_mal = normalize_text(fatura["MAL_TANIMI"])
@@ -193,7 +214,7 @@ def analiz_yurut():
             ucp_sonuc.append(("UYUMLU", "Madde 18(c): Ticari faturadaki mal tanımı akreditifle tam olarak uyuşuyor."))
         else:
             e_sonuc.append(("REZERV RISKI", "Faturadaki mal tanimi kusatla uyusmuyor!"))
-            ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle kelimesi kelimesine (exactly) uyuşmuyor!"))
+            ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle tam olarak (bütünsel) uyuşmuyor!"))
             h_var = True
 
     if "TARIH" in fatura and bl_tarih_nesnesi:
@@ -221,10 +242,11 @@ def analiz_yurut():
     # 4. UCP 600 MADDE 30 - QUANTITY/AMOUNT TOLERANCE KONTROLÜ
     if "TUTAR" in fatura:
         try:
-            f_tutar = float(fatura["TUTAR"].replace(",", ".").strip())
+            # safe_float ile güvenli sayı dönüşümü
+            f_tutar = safe_float(fatura["TUTAR"])
             akreditif_tutari_match = re.search(r':32B:[A-Z]{3}\s*([\d,.]+)', kusat_upper)
             if akreditif_tutari_match:
-                a_tutar = float(akreditif_tutari_match.group(1).replace(",", ".").strip())
+                a_tutar = safe_float(akreditif_tutari_match.group(1))
                 tolerans_var = "ABOUT" in kusat_upper or "CIRCA" in kusat_upper
                 limit = 0.10 if tolerans_var else 0.00
                 
@@ -232,7 +254,7 @@ def analiz_yurut():
                 alt_limit = a_tutar * (1 - limit)
                 
                 if f_tutar > ust_limit or f_tutar < alt_limit:
-                    ucp_sonuc.append(("REZERV RİSKİ", f"Madde 30(a): Fatura tutarı ({f_tutar}) tolerans sınırları ({alt_limit} - {ust_limit}) dışında!"))
+                    ucp_sonuc.append(("REZERV RİSKİ", f"Madde 30(a): Fatura tutarı ({f_tutar:,.2f}) tolerans sınırları ({alt_limit:,.2f} - {ust_limit:,.2f}) dışında!"))
                     h_var = True
                 else:
                     ucp_sonuc.append(("UYUMLU", "Madde 30(a): Fatura tutarı kabul edilebilir tolerans limitleri içinde."))
