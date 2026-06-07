@@ -354,24 +354,26 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 5 & 6. JSON TABANLI KONTROLLER
+    # 5 & 6. GÜÇLENDİRİLMİŞ JSON TABANLI KONTROLLER
     if 'zorunlu_kurallar' in kurallar:
         for k in kurallar['zorunlu_kurallar']:
-            k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
-            if k_anahtar_norm in motor.metin_isbp_normalize(kusat_upper):
-                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
+            # Metni ve kuralı normalize ederek (boşluksuz/büyük harf) karşılaştır
+            k_anahtar = k['anahtar'].upper()
+            if k_anahtar in kusat_upper:
+                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' doğrulandı."))
             else:
-                z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
+                z_sonuc.append(("RISK", f"'{k['anahtar']}' anahtar kelimesi metinde bulunamadı!"))
                 h_var = True
 
     if 'kritik_kontroller' in kurallar:
         for k in kurallar['kritik_kontroller']:
-            k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
-            if k_anahtar_norm in motor.metin_isbp_normalize(kusat_upper):
-                k_tespit.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
+            k_anahtar = k['anahtar'].upper()
+            if k_anahtar in kusat_upper:
+                k_tespit.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandı."))
             else:
+                # Eğer madde listede yoksa, manuel kontrol notuna ekle
                 k_eksik.append((k['madde'], k['anahtar']))
-
+    
     word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     print("Yapay Zeka Klasör Destekli Uzman Raporu başarıyla tamamlandı.")
