@@ -5,12 +5,11 @@ import sys
 from datetime import datetime, timedelta
 from docx import Document
 from ucp600_motoru import UCP600KuralMotoru, normalize_text
+# Yeni yazdığımız doküman yöneticisini içeri aktarıyoruz
+from dokuman_yonetici import DokumanYonetici
 
 def safe_float(val_str):
-    """
-    Farklı finansal formatlardaki (1,500.00 veya 1.500,00) tutar metinlerini 
-    güvenli bir şekilde float tipine dönüştürür.
-    """
+    """Finansal tutarları güvenli bir şekilde float tipine dönüştürür."""
     if not val_str:
         return 0.0
     val_str = val_str.strip()
@@ -23,21 +22,23 @@ def safe_float(val_str):
     return float(val_str) if val_str else 0.0
 
 def load_rules(config_path="kurallar.json"):
-    """JSON tabanlı kuralları güvenli bir şekilde yükler."""
+    """JSON tabanlı kuralları yükler."""
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Kritik Hata: {config_path} bulunamadı!")
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def dosya_oku_ve_sozluk_yap(dosya_yolu):
+def evrak_sozluge_cevir(metin):
+    """
+    Gelişmiş Doküman Okuyucudan gelen satır bazlı ham metni 
+    anahtar-değer (sözlük) yapısına dönüştürür.
+    """
     sonuc = {}
-    if os.path.exists(dosya_yolu):
-        with open(dosya_yolu, 'r', encoding='utf-8') as f:
-            for satir in f:
-                if ':' in satir:
-                    a, d = satir.split(':', 1)
-                    anahtar = a.strip().upper().replace("İ", "I")
-                    sonuc[anahtar] = d.strip()
+    for satir in metin.split('\n'):
+        if ':' in satir:
+            a, d = satir.split(':', 1)
+            anahtar = a.strip().upper().replace("İ", "I").replace(" ", "_")
+            sonuc[anahtar] = d.strip()
     return sonuc
 
 def madde_uzman_yorumu_al(madde_adi):
@@ -48,17 +49,16 @@ def madde_uzman_yorumu_al(madde_adi):
         "Art 5": "Bankaların işlemlerinin sadece belgeler üzerinden yürüdüğünü, mallar, hizmetler veya performanslarla ilgilenmediğini vurgular (Belge Ticareti İlkesi).",
         "Art 6": "Akreditifin hangi bankanın gişesinde (kullanım yerinde) son bulacağını ve ödeme şeklini (Görüldüğünde, Vadeli, İştira) netleştirir.",
         "Art 7": "Amir bankanın (Issuing Bank), kurallara uygun evrak ibraz edildiğinde lehtara karşı geri dönülemez ve kesin bir ödeme taahhüdü altında olduğunu açıklar.",
-        "Art 8": "Teyit bankasının sorumluluklarını belirler. Teyit eklenmişse, amir bankanın riskine ek olarak ikinci bir bankanın ödeme garantisi devreye girmiş demektir.",
+        "Art 8": "Teyit bankasının sorumluluklarını belirler. Teyit eklenmişse, amir bankanın riskine ek olarak ikinci bir bankanın ödeme garantisi devreye yanar.",
         "Art 14": "Bankaların belgeleri inceleme standartlarını belirler. Belgelerin kendi arasında ve akreditifle çelişmemesi (tutarlılık) için en kritik maddedir.",
         "Art 18": "Ticari faturanın (Commercial Invoice) mutlaka lehtar tarafından düzenlenmesi, amir adına kesilmesi ve akreditif döviziyle uyumlu olması şartını koşar.",
         "Art 20": "Deniz Konşimentosu (Bill of Lading) kurallarıdır. Belgenin mutlaka 'Shipped on Board' (Yüklendi) kaydı taşıması, orijinal olması ve taşıyanın imzasını barındırması zorunludur.",
         "Art 27": "Taşıma belgesinin 'Temiz' (Clean) olması gerektiğini, yani mal veya ambalajda hasar/kusur belirten hiçbir ibare taşımaması gerektiğini söyler.",
-        "Art 28": "Sigorta belgelerinin (Insurance Policy/Certificate) akreditif dövizinde olması, en geç yükleme gününde başlaması ve aksi belirtilmedikçe fatura tutarının en az %110'unu kapsaması şarttır.",
-        "Art 31": "Kısmi yükleme (Partial Shipment) izinlerini düzenler. Akreditifte yasaklanmadığı sürece parça parça mal sevkiyatı yapmak hukuken serbesttir."
+        "Art 28": "Sigorta belgelerinin akreditif dövizinde olması, en geç yükleme gününde başlaması ve aksi belirtilmedikçe fatura tutarının en az %110'unu kapsaması şarttır.",
+        "Art 31": "Kısmi yükleme (Partial Shipment) izinlerini düzenler. Akreditifte yasaklanmadığı sürece parça parça mal sevkiyatı yapmak serbesttir."
     }
-    # Eğer listede yoksa genel bir yorum üret
     madde_temiz = madde_adi.replace("[", "").replace("]", "").strip()
-    return yorumlar.get(madde_temiz, "UCP 600 kuralları gereği bu maddenin evraklarda doğrudan veya dolaylı olarak mevzuata uygun şekilde yönetilmesi riskleri azaltır.")
+    return yorumlar.get(madde_temiz, "UCP 600 kuralları gereği bu maddenin operasyonel olarak yönetilmesi rezerv risklerini azaltır.")
 
 def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
     with open("akreditif_analiz_raporu.md", "w", encoding="utf-8") as f:
@@ -69,7 +69,6 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i
             f.write("## 1. Kritik Süreler ve Vade Analizi\n")
             for n in t_not: f.write(f"* {n}\n")
             f.write("\n")
-            
         if f_not:
             f.write("## 2. Finansal Vade ve Ödeme Takvimi\n")
             for n in f_not: f.write(f"* {n}\n")
@@ -128,7 +127,6 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
     if t_not:
         doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
         for n in t_not: doc.add_paragraph(str(n))
-        
     if f_not:
         doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
         for n in f_not: doc.add_paragraph(str(n))
@@ -144,7 +142,6 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
         doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
         for d, m in z_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
         
-    # Gelişmiş Yorumlu Tablo Yapısı
     doc.add_heading('6. UCP 600 Denetim ve Mevzuat Yorum Tablosu', level=2)
     table = doc.add_table(rows=1, cols=4)
     table.style = 'Light Shading Accent 1'
@@ -158,7 +155,6 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
         row_cells = table.add_row().cells
         match = re.search(r'\[(.*?)\]', m)
         m_adi = match.group(1) if match else "UCP"
-        
         row_cells[0].text = m_adi
         row_cells[1].text = str(d)
         row_cells[2].text = m
@@ -168,11 +164,10 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
         row_cells = table.add_row().cells
         match = re.search(r'(Madde \d+\(?[a-z]?\)?):', m)
         m_adi = match.group(1) if match else "UCP Motoru"
-        
         row_cells[0].text = m_adi
         row_cells[1].text = str(d)
         row_cells[2].text = m
-        row_cells[3].text = "Bu bulgu, akreditif kuralları (UCP 600) ve uluslararası bankacılık standart uygulamalarının (ISBP) çapraz evrak kontrolü eşleşmesinden üretilmiştir."
+        row_cells[3].text = "Bu bulgu, akreditif kuralları (UCP 600) ve uluslararası bankacılık standart uygulamalarının (ISBP) çapraz evrak kontrolünden üretilmiştir."
 
     if k_eksik:
         doc.add_heading('7. Doğrudan Geçmeyen Maddeler Notu', level=2)
@@ -183,33 +178,56 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
     if h_var:
         doc.add_paragraph("SONUÇ: Rezerv riskleri tespit edildi! Evrakları bankaya ibraz etmeden önce riskli alanları revize edin.")
     else:
-        doc.add_paragraph("SONUÇ: Altyapı tam uyumlu. Herhangi bir operasyonel rezerv riski saptanmamıştır.")
+        doc.add_paragraph("SONUÇ: Altyapı tam uyumlu.")
         
     doc.save("akreditif_analiz_raporu.docx")
 
+def dinamik_dosya_bul_ve_oku(yonetici, varsayilan_ad, desteklenen_uzantilar):
+    """
+    Klasörde varsayılan isme sahip dinamik evrakları (.docx, .xlsx, .pdf, .png, .txt)
+    otomatik olarak tarar, bulur ve metne çevirir.
+    """
+    for uzanti in desteklenen_uzantilar:
+        test_yolu = f"{varsayilan_ad}{uzanti}"
+        if os.path.exists(test_yolu):
+            print(f"[OKUNUYOR] Evrak algılandı: {test_yolu}")
+            return yonetici.evrak_metne_cevir(test_yolu)
+            
+    # Eğer hiçbir zengin format bulunamazsa eski txt yapısına sadık kal
+    txt_yolu = f"{varsayilan_ad}.txt"
+    if os.path.exists(txt_yolu):
+        return yonetici.evrak_metne_cevir(txt_yolu)
+    return ""
+
 def analiz_yurut():
     kural_dosyasi = 'kurRules.json' if os.path.exists('kurRules.json') else 'kurallar.json'
-    
     try:
         kurallar = load_rules(kural_dosyasi)
     except FileNotFoundError as e:
         print(e)
         sys.exit(1)
-        
-    if not os.path.exists("gelen_kusat.txt"):
-        print("Hata: gelen_kusat.txt bulunamadı!")
-        sys.exit(1)
 
-    with open("gelen_kusat.txt", 'r', encoding='utf-8') as f:
-        kusat_upper = f.read().upper()
-        
-    fatura = dosya_oku_ve_sozluk_yap("fatura.txt")
-    konsimento = dosya_oku_ve_sozluk_yap("konsimento.txt")
-    sigorta = dosya_oku_ve_sozluk_yap("sigorta.txt")
+    # Akıllı Doküman Yöneticisini başlatıyoruz
+    yonetici = DokumanYonetici()
+    uzantilar = ['.docx', '.xlsx', '.pdf', '.png', '.jpg', '.jpeg']
+
+    # DOSYALARI DİNAMİK OLARAK TARAYIP OKUYORUZ
+    kusat_upper = dinamik_dosya_bul_ve_oku(yonetici, "gelen_kusat", uzantilar).upper()
+    fatura_metin = dinamik_dosya_bul_ve_oku(yonetici, "fatura", uzantilar)
+    konsimento_metin = dinamik_dosya_bul_ve_oku(yonetici, "konsimento", uzantilar)
+    sigorta_metin = dinamik_dosya_bul_ve_oku(yonetici, "sigorta", uzantilar)
+
+    # Okunan metinleri sözlük formatına parse ediyoruz
+    fatura = evrak_sozluge_cevir(fatura_metin)
+    konsimento = evrak_sozluge_cevir(konsimento_metin)
+    sigorta = evrak_sozluge_cevir(sigorta_metin)
     
+    if not kusat_upper:
+        print("Hata: Analiz edilecek gelen_kusat dokümanı bulunamadı!")
+        sys.exit(1)
+        
     t_not, f_not, e_sonuc, z_sonuc, k_tespit, k_eksik, i_not, ucp_sonuc = [], [], [], [], [], [], [], []
     h_var = False
-
     motor = UCP600KuralMotoru({}, {}, kurallar)
 
     # 1. TARİH VE VADE SÜRE ANALİZLERİ
@@ -244,7 +262,7 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ
+    # 2. INCOTERMS & SİGORTA DENETİMİ
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
     b_in = next((i for i in incoterms if i in kusat_upper), None)
     
@@ -310,7 +328,7 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 4. UCP 600 MADDE 30 - QUANTITY/AMOUNT TOLERANCE KONTROLÜ
+    # 4. QUANTITY/AMOUNT TOLERANCE KONTROLÜ
     if "TUTAR" in fatura:
         try:
             f_tutar = safe_float(fatura["TUTAR"])
@@ -319,7 +337,6 @@ def analiz_yurut():
                 a_tutar = safe_float(akreditif_tutari_match.group(1))
                 tolerans_var = "ABOUT" in kusat_upper or "CIRCA" in kusat_upper
                 limit = 0.10 if tolerans_var else 0.00
-                
                 ust_limit = a_tutar * (1 + limit)
                 alt_limit = a_tutar * (1 - limit)
                 
@@ -331,7 +348,7 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 5 & 6. JSON TABANLI UCP KONTROLLERİ
+    # 5 & 6. JSON TABANLI KONTROLLER
     if 'zorunlu_kurallar' in kurallar:
         for k in kurallar['zorunlu_kurallar']:
             k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
@@ -349,10 +366,10 @@ def analiz_yurut():
             else:
                 k_eksik.append((k['madde'], k['anahtar']))
 
-    # RAPORLARI DOSYALARA YAZ
+    # RAPORLARI YAZ
     word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    print("Mevzuat analizli ve profesyonel yorumlu rapor başarıyla üretildi.")
+    print("Yapay Zeka Çoklu Evrak Okuma Destekli Uzman Raporu başarıyla tamamlandı.")
 
 if __name__ == "__main__":
     analiz_yurut()
