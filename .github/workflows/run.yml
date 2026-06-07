@@ -3,7 +3,8 @@ name: Akreditif Otomatik Analiz Motoru
 on:
   push:
     paths:
-      - 'yuklenen_dosyalar/**' # Sadece bu klasöre dosya yüklenince otomatik çalışır!
+      - 'yuklenen_dosyalar/**'
+  workflow_dispatch:
 
 jobs:
   analiz_et:
@@ -28,7 +29,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Sihirli Adım: Klasörün içindeki karmaşık isimli dosyaları akıllıca eşleştirir
     - name: Dosya İsimlerini Otomatik Eşitle
       run: |
         python -c "
@@ -37,30 +37,22 @@ jobs:
         klasor = 'yuklenen_dosyalar'
         uzantilar = ['*.docx', '*.xlsx', '*.pdf', '*.png', '*.jpg', '*.jpeg', '*.txt']
         
-        # Klasördeki tüm dosyaları tara
         tum_dosyalar = []
         for uzanti in uzantilar:
             tum_dosyalar.extend(glob.glob(os.path.join(klasor, uzanti)))
             
-        print(f'Saptanan dosyalar: {tum_dosyalar}')
-        
-        # Akıllı eşleştirme mantığı
         for dosya in tum_dosyalar:
             dosya_adi = os.path.basename(dosya).lower()
             uzanti = os.path.splitext(dosya)[1]
             
             if 'fatura' in dosya_adi or 'invoice' in dosya_adi:
                 shutil.copy(dosya, f'yuklenen_dosyalar/fatura{uzanti}')
-                print(f'[EŞLEŞTİ] Fatura: {dosya} -> fatura{uzanti}')
-            elif 'kusat' in dosya_adi or 'lc' in dosya_adi or 'credit' in dosya_adi or 'swift' in dosya_adi:
+            elif 'kusat' in dosya_adi or 'lc' in dosya_adi or 'credit' in dosya_adi:
                 shutil.copy(dosya, f'yuklenen_dosyalar/gelen_kusat{uzanti}')
-                print(f'[EŞLEŞTİ] Kuşat: {dosya} -> gelen_kusat{uzanti}')
-            elif 'konsimento' in dosya_adi or 'lading' in dosya_adi or 'vessel' in dosya_adi:
+            elif 'konsimento' in dosya_adi or 'lading' in dosya_adi:
                 shutil.copy(dosya, f'yuklenen_dosyalar/konsimento{uzanti}')
-                print(f'[EŞLEŞTİ] Konşimento: {dosya} -> konsimento{uzanti}')
             elif 'sigorta' in dosya_adi or 'insurance' in dosya_adi:
                 shutil.copy(dosya, f'yuklenen_dosyalar/sigorta{uzanti}')
-                print(f'[EŞLEŞTİ] Sigorta: {dosya} -> sigorta{uzanti}')
         "
 
     - name: Yapay Zeka Analiz Motorunu Çalıştır
