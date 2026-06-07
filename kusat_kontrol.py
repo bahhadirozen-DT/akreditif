@@ -40,69 +40,122 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
                     sonuc[anahtar] = d.strip()
     return sonuc
 
-def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
+def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
     with open("akreditif_analiz_raporu.md", "w", encoding="utf-8") as f:
         f.write("# 📋 AKREDİTİF GELİŞMİŞ DENETİM RAPORU\n\n")
         f.write(f"**Rapor Tarihi:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n---\n\n")
-        f.write("## 1. Kritik Süreler ve Vade Analizi\n")
-        for n in t_not: f.write(f"* {n}\n")
-        f.write("\n## 2. Finansal Vade ve Ödeme Takvimi\n")
+        
+        if t_not:
+            f.write("## 1. Kritik Süreler ve Vade Analizi\n")
+            for n in t_not: f.write(f"* {n}\n")
+            f.write("\n")
+            
         if f_not:
+            f.write("## 2. Finansal Vade ve Ödeme Takvimi\n")
             for n in f_not: f.write(f"* {n}\n")
-        else:
-            f.write("* ℹ Finansal takvim hesaplanamadı.\n")
-        f.write("\n## 3. Incoterms ve Sigorta Denetimi\n")
+            f.write("\n")
+            
+        # Incoterms her zaman basılacak, boşsa risk uyarısı verecek
+        f.write("## 3. Incoterms ve Sigorta Denetimi\n")
         for d, m in i_not:
             e = "✅" if "UYUMLU" in d or "BİLGİ" in d or "BILGI" in d else "🚨"
             f.write(f"* {e} **[{d}]** {m}\n")
-        f.write("\n## 4. Çapraz Evrak Uyumluluk Kontrolü\n")
-        for d, m in e_sonuc:
-            e = "✅" if "UYUMLU" in d else "🚨"
-            f.write(f"* {e} **[{d}]** {m}\n")
-        f.write("\n## 5. Zorunlu UCP 600 Parametreleri\n")
-        for d, m in z_sonuc:
-            e = "✅" if d == "UYUMLU" else "❌"
-            f.write(f"* {e} **[{d}]** {m}\n")
-        f.write("\n## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
-        for d, m in k_sonuc:
-            e = "🔍" if d in ["TESPİT EDİLDİ", "TESPIT EDILDI"] else "⚠"
-            f.write(f"* {e} **[{d}]** {m}\n")
-        f.write("\n## 7. UCP 600 (39 Madde) Resmi Kural Motoru Çıktıları\n")
-        for d, m in ucp_sonuc:
-            e = "✅" if "UYUMLU" in d or "BİLGİ" in d else "🚨"
-            f.write(f"* {e} **[{d}]** {m}\n")
-        f.write("\n---\n")
+        f.write("\n")
+            
+        if e_sonuc:
+            f.write("## 4. Çapraz Evrak Uyumluluk Kontrolü\n")
+            for d, m in e_sonuc:
+                e = "✅" if "UYUMLU" in d else "🚨"
+                f.write(f"* {e} **[{d}]** {m}\n")
+            f.write("\n")
+            
+        if z_sonuc:
+            f.write("## 5. Zorunlu UCP 600 Parametreleri\n")
+            for d, m in z_sonuc:
+                e = "✅" if d == "UYUMLU" else "❌"
+                f.write(f"* {e} **[{d}]** {m}\n")
+            f.write("\n")
+            
+        f.write("## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
+        if k_tespit:
+            for d, m in k_tespit:
+                f.write(f"* 🔍 **[{d}]** {m}\n")
+        if k_eksik:
+            maddeler_str = ", ".join([m for m, _ in k_eksik])
+            f.write(f"* ⚠ **[MANUEL KONTROL]** Aşağıdaki UCP maddelerine ait anahtar kelimeler SWIFT metninde doğrudan geçmemektedir: *{maddeler_str}*\n")
+        f.write("\n")
+            
+        if ucp_sonuc:
+            f.write("## 7. UCP 600 Resmi Kural Motoru Çıktıları\n")
+            for d, m in ucp_sonuc:
+                e = "✅" if "UYUMLU" in d or "BİLGİ" in d else "🚨"
+                f.write(f"* {e} **[{d}]** {m}\n")
+            f.write("\n")
+            
+        f.write("---\n")
         if h_var:
             f.write("### 🚨 SONUÇ: Rezerv riskleri tespit edildi! Kontrol etmeden bankaya vermeyin.\n")
         else:
             f.write("### 🎉 SONUÇ: Tüm kontroller başarıyla tamamlandı. Altyapı tam uyumlu.\n")
 
-def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
+def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
     doc = Document()
     doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
     doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-    doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
-    for n in t_not: doc.add_paragraph(str(n))
-    doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
+    
+    if t_not:
+        doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
+        for n in t_not: doc.add_paragraph(str(n))
+        
     if f_not:
+        doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
         for n in f_not: doc.add_paragraph(str(n))
-    else:
-        doc.add_paragraph("Finansal takvim hesaplanamadı.")
+        
+    # Incoterms ve Sigorta her koşulda rapora eklenecek
     doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
     for d, m in i_not: doc.add_paragraph(f"[{str(d)}] {str(m)}")
-    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü', level=2)
-    for d, m in e_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
-    doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
-    for d, m in z_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
-    doc.add_heading('6. UCP 600 Maddeleri ve SWIFT Kontrolleri', level=2)
-    for d, m in k_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
-    doc.add_heading('7. UCP 600 (39 Madde) Resmi Kural Motoru Çıktıları', level=2)
-    for d, m in ucp_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
+        
+    if e_sonuc:
+        doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü', level=2)
+        for d, m in e_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
+        
+    if z_sonuc:
+        doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
+        for d, m in z_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
+        
+    doc.add_heading('6. UCP 600 Denetim ve Tespit Tablosu', level=2)
+    table = doc.add_table(rows=1, cols=3)
+    table.style = 'Light Shading Accent 1'
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = 'Kural / Madde'
+    hdr_cells[1].text = 'Durum'
+    hdr_cells[2].text = 'Açıklama ve Bulgular'
+    
+    for d, m in k_tespit:
+        row_cells = table.add_row().cells
+        match = re.search(r'\[(.*?)\]', m)
+        row_cells[0].text = match.group(1) if match else "UCP"
+        row_cells[1].text = str(d)
+        row_cells[2].text = m
+        
+    for d, m in ucp_sonuc:
+        row_cells = table.add_row().cells
+        match = re.search(r'(Madde \d+\(?[a-z]?\)?):', m)
+        row_cells[0].text = match.group(1) if match else "UCP Motoru"
+        row_cells[1].text = str(d)
+        row_cells[2].text = m
+
+    if k_eksik:
+        doc.add_heading('7. Doğrudan Geçmeyen Maddeler Notu', level=2)
+        maddeler_str = ", ".join([m for m, _ in k_eksik])
+        doc.add_paragraph(f"Aşağıdaki kurallara ait spesifik ifadeler SWIFT metninde doğrudan yer almamaktadır (Manuel kontrol önerilir):\n{maddeler_str}")
+        
     doc.add_paragraph("\n" + "="*40)
     if h_var:
         doc.add_paragraph("SONUÇ: Rezerv riskleri tespit edildi!")
     else:
         doc.add_paragraph("SONUÇ: Altyapı tam uyumlu.")
+        
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
@@ -125,10 +178,9 @@ def analiz_yurut():
     konsimento = dosya_oku_ve_sozluk_yap("konsimento.txt")
     sigorta = dosya_oku_ve_sozluk_yap("sigorta.txt")
     
-    t_not, f_not, e_sonuc, z_sonuc, k_sonuc, i_not, ucp_sonuc = [], [], [], [], [], [], []
+    t_not, f_not, e_sonuc, z_sonuc, k_tespit, k_eksik, i_not, ucp_sonuc = [], [], [], [], [], [], [], []
     h_var = False
 
-    # DÜZELTİLEN SATIR: Motoru doğru sınıf adıyla (`UCP600KuralMotoru`) çağırıyoruz.
     motor = UCP600KuralMotoru({}, {}, kurallar)
 
     # 1. TARİH VE VADE SÜRE ANALİZLERİ
@@ -151,7 +203,7 @@ def analiz_yurut():
         t_not.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
         
         if bl_tarih_nesnesi and bl_tarih_nesnesi > y_date:
-            ucp_sonuc.append(("REZERV RİSKİ", f"Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
+            ucp_sonuc.append(("REZERV RİSKİ", f"Madde 14(c) Geç Yükleme: Konşimento yükleme tarihi ({bl_tarih_nesnesi.strftime('%d.%m.%Y')}), en geç yükleme tarihini ({y_date.strftime('%d.%m.%Y')}) aşmış!"))
             h_var = True
 
     if v_match and bl_tarih_nesnesi:
@@ -163,9 +215,10 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ
+    # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ (Kritik Emniyet Kilidi)
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
     b_in = next((i for i in incoterms if i in kusat_upper), None)
+    
     if b_in:
         i_not.append(("BILGI", f"Saptanan teslim sekli: {b_in}"))
         if b_in in ["CIF", "CIP"]:
@@ -183,8 +236,12 @@ def analiz_yurut():
                     except Exception:
                         pass
             else:
-                i_not.append(("REZERV RISKI", "Sigorta policesi sartı eksik!"))
+                i_not.append(("REZERV RISKI", "Akreditif CIF/CIP olmasına rağmen Sigorta Poliçesi şartı metinde eksik!"))
                 h_var = True
+    else:
+        # Eğer kısa metinde hiçbir Incoterms bulunamazsa sistem tehlike uyarısı fırlatacak
+        i_not.append(("REZERV RISKI", "Kritik UYARI: Akreditif metninde resmi bir Incoterms (Teslim Şekli) saptanamadı!"))
+        h_var = True
 
     # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ
     m_match = re.search(r':45A:([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
@@ -221,7 +278,7 @@ def analiz_yurut():
                 ucp_sonuc.append(("REZERV RİSKİ", "Madde 28(e): Sigorta poliçesi tarihi yükleme tarihinden sonra olamaz!"))
                 h_var = True
             else:
-                ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenlenmiş."))
+                ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenmenmiş."))
         except Exception:
             pass
 
@@ -260,14 +317,14 @@ def analiz_yurut():
         for k in kurallar['kritik_kontroller']:
             k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
             if k_anahtar_norm in motor.metin_isbp_normalize(kusat_upper):
-                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
+                k_tespit.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
             else:
-                k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
+                k_eksik.append((k['madde'], k['anahtar']))
 
     # RAPORLARI DOSYALARA YAZ
-    word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    print("Analiz başarıyla tamamlandı ve raporlar üretildi.")
+    word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
+    markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
+    print("Incoterms emniyet kilitli analiz başarıyla tamamlandı.")
 
 if __name__ == "__main__":
     analiz_yurut()
