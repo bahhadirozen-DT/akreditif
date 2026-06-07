@@ -51,12 +51,39 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_va
             f.write(f"* {e} **[{d}]** {m}\n")
             
         f.write("\n---\n")
-        if h_var: f.write("### 🚨 SONUÇ: Rezerv riskleri tespit edildi!\n")
-        else: f.write("### 🎉 SONUÇ: Altyapı tam uyumlu.\n")
+        if h_var: f.write("### 🚨 SONUÇ: Rezerv riskleri tespit edildi! Kontrol etmeden bankaya vermeyin.\n")
+        else: f.write("### 🎉 SONUÇ: Tüm kontroller başarıyla tamamlandı. Altyapı tam uyumlu.\n")
 
 def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var):
     doc = Document()
     doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
+    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
+    doc.add_paragraph("=" * 50)
+    
+    doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
+    for n in t_not: doc.add_paragraph(n)
+        
+    doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
+    if f_not:
+        for n in f_not: doc.add_paragraph(n)
+    else: doc.add_paragraph("ℹ️ Finansal takvim hesaplanamadı.")
+
+    doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
+    for d, m in i_not: doc.add_paragraph(f"[{d}] {m}")
+
+    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü', level=2)
+    for d, m in e_sonuc: doc.add_paragraph(f"[{d}] {m}")
+
+    doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
+    for d, m in z_sonuc: doc.add_paragraph(f"[{d}] {m}")
+            
+    doc.add_heading('6. UCP 600 Maddeleri ve SWIFT Kontrolleri', level=2)
+    for d, m in k_sonuc: doc.add_paragraph(f"[{d}] {m}")
+
+    doc.add_paragraph("=" * 50)
+    if h_var: doc.add_paragraph("🚨 SONUÇ: Rezerv riskleri tespit edildi!")
+    else: doc.add_paragraph("🎉 SONUÇ: Altyapı tam uyumlu.")
+
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
@@ -134,7 +161,6 @@ def analiz_yurut():
         else:
             k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} doğrudan geçmiyor."))
 
-    # Kısa ve ekrana tam sığan kapanış alanı
     word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
     exit(0)
