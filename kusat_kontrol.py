@@ -5,7 +5,6 @@ import sys
 from datetime import datetime, timedelta
 from docx import Document
 from ucp600_motoru import UCP600KuralMotoru, normalize_text
-# Yeni yazdığımız doküman yöneticisini içeri aktarıyoruz
 from dokuman_yonetici import DokumanYonetici
 
 def safe_float(val_str):
@@ -29,10 +28,7 @@ def load_rules(config_path="kurallar.json"):
         return json.load(f)
 
 def evrak_sozluge_cevir(metin):
-    """
-    Gelişmiş Doküman Okuyucudan gelen satır bazlı ham metni 
-    anahtar-değer (sözlük) yapısına dönüştürür.
-    """
+    """Satır bazlı ham metni sözlük yapısına dönüştürür."""
     sonuc = {}
     for satir in metin.split('\n'):
         if ':' in satir:
@@ -49,7 +45,7 @@ def madde_uzman_yorumu_al(madde_adi):
         "Art 5": "Bankaların işlemlerinin sadece belgeler üzerinden yürüdüğünü, mallar, hizmetler veya performanslarla ilgilenmediğini vurgular (Belge Ticareti İlkesi).",
         "Art 6": "Akreditifin hangi bankanın gişesinde (kullanım yerinde) son bulacağını ve ödeme şeklini (Görüldüğünde, Vadeli, İştira) netleştirir.",
         "Art 7": "Amir bankanın (Issuing Bank), kurallara uygun evrak ibraz edildiğinde lehtara karşı geri dönülemez ve kesin bir ödeme taahhüdü altında olduğunu açıklar.",
-        "Art 8": "Teyit bankasının sorumluluklarını belirler. Teyit eklenmişse, amir bankanın riskine ek olarak ikinci bir bankanın ödeme garantisi devreye yanar.",
+        "Art 8": "Teyit bankasının sorumluluklarını belirler. Teyit eklenmişse, amir bankanın riskine ek olarak ikinci bir bankanın ödeme garantisi devreye girer.",
         "Art 14": "Bankaların belgeleri inceleme standartlarını belirler. Belgelerin kendi arasında ve akreditifle çelişmemesi (tutarlılık) için en kritik maddedir.",
         "Art 18": "Ticari faturanın (Commercial Invoice) mutlaka lehtar tarafından düzenlenmesi, amir adına kesilmesi ve akreditif döviziyle uyumlu olması şartını koşar.",
         "Art 20": "Deniz Konşimentosu (Bill of Lading) kurallarıdır. Belgenin mutlaka 'Shipped on Board' (Yüklendi) kaydı taşıması, orijinal olması ve taşıyanın imzasını barındırması zorunludur.",
@@ -184,19 +180,32 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
 
 def dinamik_dosya_bul_ve_oku(yonetici, varsayilan_ad, desteklenen_uzantilar):
     """
-    Klasörde varsayılan isme sahip dinamik evrakları (.docx, .xlsx, .pdf, .png, .txt)
-    otomatik olarak tarar, bulur ve metne çevirir.
+    Klasörde ve 'yuklenen_dosyalar/' dizininde evrakları otomatik tarar.
     """
+    klasor = "yuklenen_dosyalar"
+    
     for uzanti in desteklenen_uzantilar:
-        test_yolu = f"{varsayilan_ad}{uzanti}"
-        if os.path.exists(test_yolu):
-            print(f"[OKUNUYOR] Evrak algılandı: {test_yolu}")
-            return yonetici.evrak_metne_cevir(test_yolu)
+        # Önce yeni klasörün içinde ara
+        test_yolu_yeni = os.path.join(klasor, f"{varsayilan_ad}{uzanti}")
+        if os.path.exists(test_yolu_yeni):
+            print(f"[OKUNUYOR] Klasörden evrak algılandı: {test_yolu_yeni}")
+            return yonetici.evrak_metne_cevir(test_yolu_yeni)
             
-    # Eğer hiçbir zengin format bulunamazsa eski txt yapısına sadık kal
-    txt_yolu = f"{varsayilan_ad}.txt"
-    if os.path.exists(txt_yolu):
-        return yonetici.evrak_metne_cevir(txt_yolu)
+        # Geriye dönük uyumluluk için eski ana dizindeki yerini de kontrol et
+        test_yolu_eski = f"{varsayilan_ad}{uzanti}"
+        if os.path.exists(test_yolu_eski):
+            print(f"[OKUNUYOR] Ana dizinden evrak algılandı: {test_yolu_eski}")
+            return yonetici.evrak_metne_cevir(test_yolu_eski)
+            
+    # Düz metin (.txt) kontrolleri
+    txt_yolu_yeni = os.path.join(klasor, f"{varsayilan_ad}.txt")
+    if os.path.exists(txt_yolu_yeni):
+        return yonetici.evrak_metne_cevir(txt_yolu_yeni)
+        
+    txt_yolu_eski = f"{varsayilan_ad}.txt"
+    if os.path.exists(txt_yolu_eski):
+        return yonetici.evrak_metne_cevir(txt_yolu_eski)
+        
     return ""
 
 def analiz_yurut():
@@ -207,17 +216,14 @@ def analiz_yurut():
         print(e)
         sys.exit(1)
 
-    # Akıllı Doküman Yöneticisini başlatıyoruz
     yonetici = DokumanYonetici()
     uzantilar = ['.docx', '.xlsx', '.pdf', '.png', '.jpg', '.jpeg']
 
-    # DOSYALARI DİNAMİK OLARAK TARAYIP OKUYORUZ
     kusat_upper = dinamik_dosya_bul_ve_oku(yonetici, "gelen_kusat", uzantilar).upper()
     fatura_metin = dinamik_dosya_bul_ve_oku(yonetici, "fatura", uzantilar)
     konsimento_metin = dinamik_dosya_bul_ve_oku(yonetici, "konsimento", uzantilar)
     sigorta_metin = dinamik_dosya_bul_ve_oku(yonetici, "sigorta", uzantilar)
 
-    # Okunan metinleri sözlük formatına parse ediyoruz
     fatura = evrak_sozluge_cevir(fatura_metin)
     konsimento = evrak_sozluge_cevir(konsimento_metin)
     sigorta = evrak_sozluge_cevir(sigorta_metin)
@@ -366,10 +372,9 @@ def analiz_yurut():
             else:
                 k_eksik.append((k['madde'], k['anahtar']))
 
-    # RAPORLARI YAZ
     word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    print("Yapay Zeka Çoklu Evrak Okuma Destekli Uzman Raporu başarıyla tamamlandı.")
+    print("Yapay Zeka Klasör Destekli Uzman Raporu başarıyla tamamlandı.")
 
 if __name__ == "__main__":
     analiz_yurut()
