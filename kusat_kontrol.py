@@ -3,7 +3,6 @@ import os
 import re
 from datetime import datetime, timedelta
 from docx import Document
-from docx.shared import Pt, RGBColor
 
 def basitleştir_metin(m):
     return re.sub(r'[^A-Z0-9]', '', m.upper()) if m else ""
@@ -57,78 +56,32 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_va
 
 def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var):
     doc = Document()
+    doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
+    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
     
-    # Büyük Başlık
-    title = doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
-    title.runs[0].font.name = 'Arial'
-    title.runs[0].font.size = Pt(18)
-    title.runs[0].font.bold = True
-    
-    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
-    doc.add_paragraph("=" * 60)
-    
-    # 1. Tarih Analizi
     doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
-    for n in t_not:
-        doc.add_paragraph(n)
+    for n in t_not: doc.add_paragraph(str(n))
         
-    # 2. Finansal Vade
     doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
     if f_not:
-        for n in f_not: doc.add_paragraph(n)
-    else:
-        doc.add_paragraph("ℹ️ Vadeli ödeme takvimi hesaplanamadı.")
+        for n in f_not: doc.add_paragraph(str(n))
+    else: doc.add_paragraph("Finansal takvim hesaplanamadı.")
 
-    # 3. Incoterms
     doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
-    for d, m in i_not:
-        p = doc.add_paragraph()
-        run = p.add_run(f"[{d}] {m}")
-        if "UYUMLU" in d or "BİLGİ" in d:
-            run.font.color.rgb = RGBColor(0, 102, 204) # Mavi
-        else:
-            run.font.color.rgb = RGBColor(255, 0, 0) # Kırmızı
+    for d, m in i_not: doc.add_paragraph(f"[{str(d)}] {str(m)}")
 
-    # 4. Çapraz Evrak
-    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü (Rezerv Önleme)', level=2)
-    for d, m in e_sonuc:
-        p = doc.add_paragraph()
-        run = p.add_run(f"[{d}] {m}")
-        if "UYUMLU" in d:
-            run.font.color.rgb = RGBColor(0, 128, 0) # Yeşil
-        else:
-            run.font.color.rgb = RGBColor(255, 0, 0) # Kırmızı
+    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü', level=2)
+    for d, m in e_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
 
-    # 5. Zorunlu Kurallar
     doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
-    for d, m in z_sonuc:
-        p = doc.add_paragraph()
-        run = p.add_run(f"[{d}] {m}")
-        if d == "UYUMLU":
-            run.font.color.rgb = RGBColor(0, 128, 0)
-        else:
-            run.font.color.rgb = RGBColor(255, 0, 0)
+    for d, m in z_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
             
-    # 6. SWIFT Kontrolleri
     doc.add_heading('6. UCP 600 Maddeleri ve SWIFT Kontrolleri', level=2)
-    for d, m in k_sonuc:
-        p = doc.add_paragraph()
-        run = p.add_run(f"[{d}] {m}")
-        if d == "TESPİT EDİLDİ":
-            run.font.color.rgb = RGBColor(128, 128, 128) # Gri
-        else:
-            run.font.color.rgb = RGBColor(204, 102, 0) # Turuncu
+    for d, m in k_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
 
-    doc.add_paragraph("=" * 60)
-    p_son = doc.add_paragraph()
-    if h_var:
-        run_s = p_son.add_run("🚨 SONUÇ: Rezerv riskleri tespit edildi! Bankaya teslim etmeyin.")
-        run_s.font.bold = True
-        run_s.font.color.rgb = RGBColor(255, 0, 0)
-    else:
-        run_s = p_son.add_run("🎉 SONUÇ: Altyapı tam uyumlu. Güvenle yükleme yapabilirsiniz.")
-        run_s.font.bold = True
-        run_s.font.color.rgb = RGBColor(0, 128, 0)
+    doc.add_paragraph("\n" + "="*40)
+    if h_var: doc.add_paragraph("SONUÇ: Rezerv riskleri tespit edildi!")
+    else: doc.add_paragraph("SONUÇ: Altyapı tam uyumlu.")
 
     doc.save("akreditif_analiz_raporu.docx")
 
@@ -166,12 +119,12 @@ def analiz_yurut():
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
     b_in = next((i for i in incoterms if i in kusat_upper), None)
     if b_in:
-        i_not.append(("BİLGİ", f"Saptanan teslim şekli: {b_in}"))
+        i_not.append(("BILGI", f"Saptanan teslim sekli: {b_in}"))
         if b_in in ["CIF", "CIP"]:
             if "INSURANCE" in kusat_upper or "110%" in kusat_upper:
-                i_not.append(("UYUMLU", "Sigorta şartları eksiksiz saptandı."))
+                i_not.append(("UYUMLU", "Sigorta sartlari eksiksiz saptandi."))
             else:
-                i_not.append(("REZERV RİSKİ", "Sigorta poliçesi şartı eksik!"))
+                i_not.append(("REZERV RISKI", "Sigorta policesi sartı eksik!"))
                 h_var = True
 
     # 4. EVRAK KONTROL
@@ -179,33 +132,33 @@ def analiz_yurut():
     if m_match and "MAL_TANIMI" in fatura:
         k_mal, f_mal = basitleştir_metin(m_match.group(1)), basitleştir_metin(fatura["MAL_TANIMI"])
         if f_mal in k_mal or k_mal in f_mal:
-            e_sonuc.append(("UYUMLU", "Mal tanımı fatura ile uyuşuyor."))
+            e_sonuc.append(("UYUMLU", "Mal tanimi fatura ile uyusuyor."))
         else:
-            e_sonuc.append(("REZERV RİSKİ", "Faturadaki mal tanımı küşatla uyuşmuyor!"))
+            e_sonuc.append(("REZERV RISKI", "Faturadaki mal tanimi kusatla uyusmuyor!"))
             h_var = True
 
     if "TARİH" in fatura and "YUKLEME_TARIHI" in konsimento:
         try:
             f_d = datetime.strptime(fatura["TARİH"].strip(), "%d.%m.%Y")
             bl_d = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
-            if f_d <= bl_d: e_sonuc.append(("UYUMLU", "Fatura tarihi gümrük yüklemesinden önce."))
+            if f_d <= bl_d: e_sonuc.append(("UYUMLU", "Fatura tarihi gumruk yuklemesinden once."))
             else:
-                e_sonuc.append(("REZERV RİSKİ", "Fatura tarihi yüklemeden sonra olamaz!"))
+                e_sonuc.append(("REZERV RISKI", "Fatura tarihi yuklemeden sonra olamaz!"))
                 h_var = True
         except Exception: pass
 
     # 5 & 6. UCP
     for k in kurallar['zorunlu_kurallar']:
-        if k['anahtar'].upper() in kusat_upper: z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' doğrulandı."))
+        if k['anahtar'].upper() in kusat_upper: z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
         else:
-            z_sonuc.append(("RİSK", f"'{k['anahtar']}' BULUNAMADI!"))
+            z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
             h_var = True
             
     for k in kurallar['kritik_kontroller']:
         if k['anahtar'].upper() in kusat_upper:
-            k_sonuc.append(("TESPİT EDİLDİ", f"[{k['madde']}] {k['anahtar']} saptandı."))
+            k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
         else:
-            k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} doğrudan geçmiyor."))
+            k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
 
     word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
