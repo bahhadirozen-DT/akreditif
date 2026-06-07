@@ -1,6 +1,6 @@
 # 📋 AKREDİTİF GELİŞMİŞ DENETİM RAPORU
 
-**Rapor Tarihi:** 07.06.2026 19:47
+**Rapor Tarihi:** 07.06.2026 19:53
 ---
 
 ## 1. Kritik Süreler ve Vade Analizi
@@ -8,7 +8,8 @@
 * Bankaya Son Evrak İbraz Tarihi: 05.08.2026
 
 ## 2. Finansal Vade ve Ödeme Takvimi
-* ℹ Finansal takvim hesaplanamadı.
+* Vade: Konşimentodan 90 gün sonra.
+* Tahmini Ödeme Günü: 08.10.2026
 
 ## 3. Incoterms ve Sigorta Denetimi
 
@@ -22,10 +23,10 @@
 
 ## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri
 * ⚠ **[KONTROL ET]** [Art 2] ADVISING BANK dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 4] CONTRACT dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 5] DOCUMENTS dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 4] CONTRACT saptandi.
+* 🔍 **[TESPIT EDILDI]** [Art 5] DOCUMENTS saptandi.
 * 🔍 **[TESPIT EDILDI]** [Art 6] :41A: saptandi.
-* ⚠ **[KONTROL ET]** [Art 7] ISSUING BANK dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 7] ISSUING BANK saptandi.
 * ⚠ **[KONTROL ET]** [Art 8] CONFIRMING BANK dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 9] AMENDMENT dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 10] ADVISING AMENDMENTS dogrudan gecmiyor.
@@ -36,20 +37,20 @@
 * ⚠ **[KONTROL ET]** [Art 15] COMPLYING PRESENTATION dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 16] DISCREPANT DOCUMENTS dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 17] ORIGINAL dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 18] COMMERCIAL INVOICE dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 18] COMMERCIAL INVOICE saptandi.
 * ⚠ **[KONTROL ET]** [Art 19] MULTIMODAL dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 20] BILL OF LADING dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 20] BILL OF LADING saptandi.
 * ⚠ **[KONTROL ET]** [Art 21] NON-NEGOTIABLE SEA WAYBILL dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 22] CHARTER PARTY dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 23] AIR TRANSPORT dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 24] ROAD RAIL INLAND dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 25] COURIER POST dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 26] DECK dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 27] CLEAN dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 28] INSURANCE dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 27] CLEAN saptandi.
+* 🔍 **[TESPIT EDILDI]** [Art 28] INSURANCE saptandi.
 * ⚠ **[KONTROL ET]** [Art 29] EXPIRY DATE dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 30] TOLERANCE dogrudan gecmiyor.
-* ⚠ **[KONTROL ET]** [Art 31] PARTIAL dogrudan gecmiyor.
+* 🔍 **[TESPIT EDILDI]** [Art 31] PARTIAL saptandi.
 * ⚠ **[KONTROL ET]** [Art 32] INSTALMENT dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 33] HOURS dogrudan gecmiyor.
 * ⚠ **[KONTROL ET]** [Art 34] DISCLAIMER DOCUMENTS dogrudan gecmiyor.
