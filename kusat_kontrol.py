@@ -4,20 +4,7 @@ import re
 import sys
 from datetime import datetime, timedelta
 from docx import Document
-
-def normalize_text(text):
-    """
-    Çapraz evrak kontrolünde mal tanımlarını normalize eder.
-    Ölçü ve oran bildiren %, /, . gibi kritik karakterleri korur.
-    """
-    if not text:
-        return ""
-    # Türkçe karakterleri İngilizce muadillerine dönüştürerek regex güvenliğini artırıyoruz
-    tablo = str.maketrans("ÇĞİÖŞÜ", "CGIOSU")
-    text = text.upper().translate(tablo)
-    # Ölçü ve oran bildiren %, /, . karakterlerini koruyarak temizleme yapıyoruz
-    cleaned = re.sub(r'[^A-Z0-9\s%/\.]', '', text)
-    return " ".join(cleaned.strip().split())
+from ucp600_motoru import UCP600Motoru, normalize_text
 
 def safe_float(val_str):
     """
@@ -27,13 +14,11 @@ def safe_float(val_str):
     if not val_str:
         return 0.0
     val_str = val_str.strip()
-    # Eğer metinde hem nokta hem virgül varsa veya sadece virgül kuruş ayırıcı olarak kullanılmışsa
     if (',' in val_str and '.' in val_str and val_str.rfind(',') > val_str.rfind('.')) or (',' in val_str and '.' not in val_str):
         val_str = val_str.replace('.', '').replace(',', '.')
     else:
         val_str = val_str.replace(',', '')
     
-    # Sayı ve nokta dışındaki tüm yabancı karakterleri temizle
     val_str = re.sub(r'[^0-9.]', '', val_str)
     return float(val_str) if val_str else 0.0
 
@@ -127,7 +112,7 @@ def analiz_yurut():
         kurallar = load_rules(kural_dosyasi)
     except FileNotFoundError as e:
         print(e)
-        sys.exit(1) # GitHub Actions ve CI/CD pipeline'ı kırmak için sys.exit(1) eklendi
+        sys.exit(1)
         
     if not os.path.exists("gelen_kusat.txt"):
         print("Hata: gelen_kusat.txt bulunamadı!")
@@ -142,6 +127,9 @@ def analiz_yurut():
     
     t_not, f_not, e_sonuc, z_sonuc, k_sonuc, i_not, ucp_sonuc = [], [], [], [], [], [], []
     h_var = False
+
+    # Akıllı Kural Motorunu Başlatıyoruz
+    motor = UCP600Motoru(kurallar)
 
     # 1. TARİH VE VADE SÜRE ANALİZLERİ
     y_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
@@ -185,7 +173,6 @@ def analiz_yurut():
                 i_not.append(("UYUMLU", "Sigorta sartlari eksiksiz saptandi."))
                 if "TUTAR" in fatura and "SIGORTA_TUTARI" in sigorta:
                     try:
-                        # safe_float ile güvenli sayı dönüşümü
                         f_tutar = safe_float(fatura["TUTAR"])
                         s_tutar = safe_float(sigorta["SIGORTA_TUTARI"])
                         if s_tutar < (f_tutar * 1.10):
@@ -200,21 +187,18 @@ def analiz_yurut():
                 h_var = True
 
     # 3. UCP 600 MADDE 18 - FATURA VE MAL TANIMI ÇAPRAZ KONTROLLERİ
-    # Önce :45A: alanını arar, bulamazsa çok satırlı :46A: bloğunun başını çekerek sonraki alana kadar yakalar
     m_match = re.search(r':45A:([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
     if not m_match:
         m_match = re.search(r':46A:.*?COMMERCIAL INVOICE([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
 
     if m_match and "MAL_TANIMI" in fatura:
-        k_mal = normalize_text(m_match.group(1))
-        f_mal = normalize_text(fatura["MAL_TANIMI"])
-        
-        if f_mal in k_mal or k_mal in f_mal:
+        durum, mesaj = motor.kural_kontrol_et(m_match.group(1), fatura["MAL_TANIMI"])
+        if durum:
             e_sonuc.append(("UYUMLU", "Mal tanimi fatura ile uyusuyor."))
-            ucp_sonuc.append(("UYUMLU", "Madde 18(c): Ticari faturadaki mal tanımı akreditifle tam olarak uyuşuyor."))
+            ucp_sonuc.append(("UYUMLU", f"Madde 18(c): Ticari faturadaki mal tanımı akreditifle uyumlu ({mesaj})."))
         else:
             e_sonuc.append(("REZERV RISKI", "Faturadaki mal tanimi kusatla uyusmuyor!"))
-            ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle tam olarak (bütünsel) uyuşmuyor!"))
+            ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle tam olarak uyuşmuyor!"))
             h_var = True
 
     if "TARIH" in fatura and bl_tarih_nesnesi:
@@ -242,7 +226,6 @@ def analiz_yurut():
     # 4. UCP 600 MADDE 30 - QUANTITY/AMOUNT TOLERANCE KONTROLÜ
     if "TUTAR" in fatura:
         try:
-            # safe_float ile güvenli sayı dönüşümü
             f_tutar = safe_float(fatura["TUTAR"])
             akreditif_tutari_match = re.search(r':32B:[A-Z]{3}\s*([\d,.]+)', kusat_upper)
             if akreditif_tutari_match:
@@ -261,19 +244,21 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 5 & 6. JSON TABANLI UCP KONTROLLERİ
+    # 5 & 6. AKILLI MOTOR DESTEKLİ JSON TABANLI UCP KONTROLLERİ
     if 'zorunlu_kurallar' in kurallar:
         for k in kurallar['zorunlu_kurallar']:
-            if k['anahtar'].upper() in kusat_upper:
-                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
+            durum, mesaj = motor.kural_kontrol_et(kusat_upper, k['anahtar'])
+            if durum:
+                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi ({mesaj})."))
             else:
                 z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
                 h_var = True
 
     if 'kritik_kontroller' in kurallar:
         for k in kurallar['kritik_kontroller']:
-            if k['anahtar'].upper() in kusat_upper:
-                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
+            durum, mesaj = motor.kural_kontrol_et(kusat_upper, k['anahtar'])
+            if durum:
+                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi ({mesaj})."))
             else:
                 k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
 
