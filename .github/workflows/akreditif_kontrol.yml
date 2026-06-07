@@ -1,0 +1,22 @@
+name: Akreditif Kusat Kontrol Sistemi
+
+on:
+  push:
+    paths:
+      - 'gelen_kusat.txt'  # Sadece bu dosya değiştiğinde/güncellendiğinde çalışır
+
+jobs:
+  analiz_et:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Repoyu Klonla
+      uses: actions/checkout@v4
+
+    - name: Python Ortamını Kur
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Akreditif Analiz Motorunu Çalıştır
+      run: python kusat_kontrol.py
