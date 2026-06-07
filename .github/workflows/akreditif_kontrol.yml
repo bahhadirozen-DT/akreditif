@@ -4,12 +4,13 @@ on:
   push:
     paths:
       - 'gelen_kusat.txt'
+      - 'fatura.txt'
+      - 'konsimento.txt'
 
 jobs:
   analiz_et:
     runs-on: ubuntu-latest
 
-    # Repoya dosya yazabilmesi için gerekli yazma izni
     permissions:
       contents: write
 
@@ -28,13 +29,11 @@ jobs:
     - name: Akreditif Analiz Motorunu Çalıştır
       run: python kusat_kontrol.py
 
-    # Üretilen Word dosyasını otomatik olarak repoya kaydeder ve yükler
-    - name: Word Raporunu Repoya Commit Et
-      if: always() # Hata olsa bile raporu üretip yüklemesi için
+    - name: Word Raporunu Reponya Commit Et
+      if: always()
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action Robotu"
         git add akreditif_analiz_raporu.docx
-        git commit -m "Otomatik Word raporu oluşturuldu [skip ci]" || echo "Değişiklik yok"
+        git commit -m "Gelişmiş Çapraz Evrak ve Finans Raporu Oluşturuldu [skip ci]" || echo "Değişiklik yok"
         git push
-
