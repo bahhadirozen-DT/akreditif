@@ -4,7 +4,7 @@ import re
 import sys
 from datetime import datetime, timedelta
 from docx import Document
-from ucp600_motoru import UCP600Motoru, normalize_text
+from ucp600_motoru import UCP600KuralMotoru, normalize_text
 
 def safe_float(val_str):
     """
@@ -128,8 +128,8 @@ def analiz_yurut():
     t_not, f_not, e_sonuc, z_sonuc, k_sonuc, i_not, ucp_sonuc = [], [], [], [], [], [], []
     h_var = False
 
-    # Akıllı Kural Motorunu Başlatıyoruz
-    motor = UCP600Motoru(kurallar)
+    # DÜZELTİLEN SATIR: Motoru doğru sınıf adıyla (`UCP600KuralMotoru`) çağırıyoruz.
+    motor = UCP600KuralMotoru({}, {}, kurallar)
 
     # 1. TARİH VE VADE SÜRE ANALİZLERİ
     y_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
@@ -192,10 +192,12 @@ def analiz_yurut():
         m_match = re.search(r':46A:.*?COMMERCIAL INVOICE([\s\S]*?)(?=\n:\d{2}[A-Z]?:|$)', kusat_upper)
 
     if m_match and "MAL_TANIMI" in fatura:
-        durum, mesaj = motor.kural_kontrol_et(m_match.group(1), fatura["MAL_TANIMI"])
-        if durum:
+        f_mal_norm = motor.metin_isbp_normalize(fatura["MAL_TANIMI"])
+        k_mal_norm = motor.metin_isbp_normalize(m_match.group(1))
+        
+        if f_mal_norm in k_mal_norm or k_mal_norm in f_mal_norm:
             e_sonuc.append(("UYUMLU", "Mal tanimi fatura ile uyusuyor."))
-            ucp_sonuc.append(("UYUMLU", f"Madde 18(c): Ticari faturadaki mal tanımı akreditifle uyumlu ({mesaj})."))
+            ucp_sonuc.append(("UYUMLU", "Madde 18(c): Ticari faturadaki mal tanımı akreditifle uyumlu."))
         else:
             e_sonuc.append(("REZERV RISKI", "Faturadaki mal tanimi kusatla uyusmuyor!"))
             ucp_sonuc.append(("REZERV RİSKİ", "Madde 18(c): Faturadaki mal tanımı akreditifle tam olarak uyuşmuyor!"))
@@ -244,21 +246,21 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 5 & 6. AKILLI MOTOR DESTEKLİ JSON TABANLI UCP KONTROLLERİ
+    # 5 & 6. JSON TABANLI UCP KONTROLLERİ
     if 'zorunlu_kurallar' in kurallar:
         for k in kurallar['zorunlu_kurallar']:
-            durum, mesaj = motor.kural_kontrol_et(kusat_upper, k['anahtar'])
-            if durum:
-                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi ({mesaj})."))
+            k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
+            if k_anahtar_norm in motor.metin_isbp_normalize(kusat_upper):
+                z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
             else:
                 z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
                 h_var = True
 
     if 'kritik_kontroller' in kurallar:
         for k in kurallar['kritik_kontroller']:
-            durum, mesaj = motor.kural_kontrol_et(kusat_upper, k['anahtar'])
-            if durum:
-                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi ({mesaj})."))
+            k_anahtar_norm = motor.metin_isbp_normalize(k['anahtar'])
+            if k_anahtar_norm in motor.metin_isbp_normalize(kusat_upper):
+                k_sonuc.append(("TESPIT EDILDI", f"[{k['madde']}] {k['anahtar']} saptandi."))
             else:
                 k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} dogrudan gecmiyor."))
 
