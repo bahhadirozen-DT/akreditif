@@ -40,9 +40,29 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
                     sonuc[anahtar] = d.strip()
     return sonuc
 
+def madde_uzman_yorumu_al(madde_adi):
+    """Bulunan UCP 600 maddelerine profesyonel dış ticaret yorumu ekler."""
+    yorumlar = {
+        "Art 2": "Tanımlamalar maddesidir. Akreditif süreçlerindeki tarafların (Amir, Lehtar, İhbar Bankası) sorumluluk sınırlarını çizer.",
+        "Art 4": "Akreditiflerin dayandığı temel satış sözleşmelerinden tamamen bağımsız bir hukuki işlem olduğunu belirtir. Bankalar sadece belgelerle ilgilenir, malların fiziki durumuyla ilgilenmez.",
+        "Art 5": "Bankaların işlemlerinin sadece belgeler üzerinden yürüdüğünü, mallar, hizmetler veya performanslarla ilgilenmediğini vurgular (Belge Ticareti İlkesi).",
+        "Art 6": "Akreditifin hangi bankanın gişesinde (kullanım yerinde) son bulacağını ve ödeme şeklini (Görüldüğünde, Vadeli, İştira) netleştirir.",
+        "Art 7": "Amir bankanın (Issuing Bank), kurallara uygun evrak ibraz edildiğinde lehtara karşı geri dönülemez ve kesin bir ödeme taahhüdü altında olduğunu açıklar.",
+        "Art 8": "Teyit bankasının sorumluluklarını belirler. Teyit eklenmişse, amir bankanın riskine ek olarak ikinci bir bankanın ödeme garantisi devreye girmiş demektir.",
+        "Art 14": "Bankaların belgeleri inceleme standartlarını belirler. Belgelerin kendi arasında ve akreditifle çelişmemesi (tutarlılık) için en kritik maddedir.",
+        "Art 18": "Ticari faturanın (Commercial Invoice) mutlaka lehtar tarafından düzenlenmesi, amir adına kesilmesi ve akreditif döviziyle uyumlu olması şartını koşar.",
+        "Art 20": "Deniz Konşimentosu (Bill of Lading) kurallarıdır. Belgenin mutlaka 'Shipped on Board' (Yüklendi) kaydı taşıması, orijinal olması ve taşıyanın imzasını barındırması zorunludur.",
+        "Art 27": "Taşıma belgesinin 'Temiz' (Clean) olması gerektiğini, yani mal veya ambalajda hasar/kusur belirten hiçbir ibare taşımaması gerektiğini söyler.",
+        "Art 28": "Sigorta belgelerinin (Insurance Policy/Certificate) akreditif dövizinde olması, en geç yükleme gününde başlaması ve aksi belirtilmedikçe fatura tutarının en az %110'unu kapsaması şarttır.",
+        "Art 31": "Kısmi yükleme (Partial Shipment) izinlerini düzenler. Akreditifte yasaklanmadığı sürece parça parça mal sevkiyatı yapmak hukuken serbesttir."
+    }
+    # Eğer listede yoksa genel bir yorum üret
+    madde_temiz = madde_adi.replace("[", "").replace("]", "").strip()
+    return yorumlar.get(madde_temiz, "UCP 600 kuralları gereği bu maddenin evraklarda doğrudan veya dolaylı olarak mevzuata uygun şekilde yönetilmesi riskleri azaltır.")
+
 def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
     with open("akreditif_analiz_raporu.md", "w", encoding="utf-8") as f:
-        f.write("# 📋 AKREDİTİF GELİŞMİŞ DENETİM RAPORU\n\n")
+        f.write("# 📋 AKREDİTİF GELİŞMİŞ UZMAN DENETİM RAPORU\n\n")
         f.write(f"**Rapor Tarihi:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n---\n\n")
         
         if t_not:
@@ -55,7 +75,6 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i
             for n in f_not: f.write(f"* {n}\n")
             f.write("\n")
             
-        # Incoterms her zaman basılacak, boşsa risk uyarısı verecek
         f.write("## 3. Incoterms ve Sigorta Denetimi\n")
         for d, m in i_not:
             e = "✅" if "UYUMLU" in d or "BİLGİ" in d or "BILGI" in d else "🚨"
@@ -76,13 +95,16 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i
                 f.write(f"* {e} **[{d}]** {m}\n")
             f.write("\n")
             
-        f.write("## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
+        f.write("## 6. UCP 600 Maddeleri ve Uzman Yorum Tablosu\n")
         if k_tespit:
             for d, m in k_tespit:
-                f.write(f"* 🔍 **[{d}]** {m}\n")
+                match = re.search(r'\[(.*?)\]', m)
+                m_adi = match.group(1) if match else "UCP"
+                yorum = madde_uzman_yorumu_al(m_adi)
+                f.write(f"* 🔍 **[{d}]** {m} \n  * 💡 *Uzman Analizi:* {yorum}\n")
         if k_eksik:
             maddeler_str = ", ".join([m for m, _ in k_eksik])
-            f.write(f"* ⚠ **[MANUEL KONTROL]** Aşağıdaki UCP maddelerine ait anahtar kelimeler SWIFT metninde doğrudan geçmemektedir: *{maddeler_str}*\n")
+            f.write(f"* ⚠ **[MANUEL KONTROL]** Metinde doğrudan geçmeyen maddeler: *{maddeler_str}*\n")
         f.write("\n")
             
         if ucp_sonuc:
@@ -100,7 +122,7 @@ def markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i
 
 def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var):
     doc = Document()
-    doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
+    doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM VE ANALİZ RAPORU', level=1)
     doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
     
     if t_not:
@@ -111,7 +133,6 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
         doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
         for n in f_not: doc.add_paragraph(str(n))
         
-    # Incoterms ve Sigorta her koşulda rapora eklenecek
     doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
     for d, m in i_not: doc.add_paragraph(f"[{str(d)}] {str(m)}")
         
@@ -123,38 +144,46 @@ def word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not
         doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
         for d, m in z_sonuc: doc.add_paragraph(f"[{str(d)}] {str(m)}")
         
-    doc.add_heading('6. UCP 600 Denetim ve Tespit Tablosu', level=2)
-    table = doc.add_table(rows=1, cols=3)
+    # Gelişmiş Yorumlu Tablo Yapısı
+    doc.add_heading('6. UCP 600 Denetim ve Mevzuat Yorum Tablosu', level=2)
+    table = doc.add_table(rows=1, cols=4)
     table.style = 'Light Shading Accent 1'
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Kural / Madde'
     hdr_cells[1].text = 'Durum'
-    hdr_cells[2].text = 'Açıklama ve Bulgular'
+    hdr_cells[2].text = 'Bulgu Mesajı'
+    hdr_cells[3].text = 'Hukuki ve Pratik Uzman Yorumu'
     
     for d, m in k_tespit:
         row_cells = table.add_row().cells
         match = re.search(r'\[(.*?)\]', m)
-        row_cells[0].text = match.group(1) if match else "UCP"
+        m_adi = match.group(1) if match else "UCP"
+        
+        row_cells[0].text = m_adi
         row_cells[1].text = str(d)
         row_cells[2].text = m
+        row_cells[3].text = madde_uzman_yorumu_al(m_adi)
         
     for d, m in ucp_sonuc:
         row_cells = table.add_row().cells
         match = re.search(r'(Madde \d+\(?[a-z]?\)?):', m)
-        row_cells[0].text = match.group(1) if match else "UCP Motoru"
+        m_adi = match.group(1) if match else "UCP Motoru"
+        
+        row_cells[0].text = m_adi
         row_cells[1].text = str(d)
         row_cells[2].text = m
+        row_cells[3].text = "Bu bulgu, akreditif kuralları (UCP 600) ve uluslararası bankacılık standart uygulamalarının (ISBP) çapraz evrak kontrolü eşleşmesinden üretilmiştir."
 
     if k_eksik:
         doc.add_heading('7. Doğrudan Geçmeyen Maddeler Notu', level=2)
         maddeler_str = ", ".join([m for m, _ in k_eksik])
-        doc.add_paragraph(f"Aşağıdaki kurallara ait spesifik ifadeler SWIFT metninde doğrudan yer almamaktadır (Manuel kontrol önerilir):\n{maddeler_str}")
+        doc.add_paragraph(f"Aşağıdaki kurallara ait spesifik ifadeler SWIFT metninde doğrudan yer almamaktadır:\n{maddeler_str}")
         
     doc.add_paragraph("\n" + "="*40)
     if h_var:
-        doc.add_paragraph("SONUÇ: Rezerv riskleri tespit edildi!")
+        doc.add_paragraph("SONUÇ: Rezerv riskleri tespit edildi! Evrakları bankaya ibraz etmeden önce riskli alanları revize edin.")
     else:
-        doc.add_paragraph("SONUÇ: Altyapı tam uyumlu.")
+        doc.add_paragraph("SONUÇ: Altyapı tam uyumlu. Herhangi bir operasyonel rezerv riski saptanmamıştır.")
         
     doc.save("akreditif_analiz_raporu.docx")
 
@@ -215,7 +244,7 @@ def analiz_yurut():
         except Exception:
             pass
 
-    # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ (Kritik Emniyet Kilidi)
+    # 2. INCOTERMS & UCP 600 MADDE 28 SİGORTA DENETİMİ
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
     b_in = next((i for i in incoterms if i in kusat_upper), None)
     
@@ -239,7 +268,6 @@ def analiz_yurut():
                 i_not.append(("REZERV RISKI", "Akreditif CIF/CIP olmasına rağmen Sigorta Poliçesi şartı metinde eksik!"))
                 h_var = True
     else:
-        # Eğer kısa metinde hiçbir Incoterms bulunamazsa sistem tehlike uyarısı fırlatacak
         i_not.append(("REZERV RISKI", "Kritik UYARI: Akreditif metninde resmi bir Incoterms (Teslim Şekli) saptanamadı!"))
         h_var = True
 
@@ -278,7 +306,7 @@ def analiz_yurut():
                 ucp_sonuc.append(("REZERV RİSKİ", "Madde 28(e): Sigorta poliçesi tarihi yükleme tarihinden sonra olamaz!"))
                 h_var = True
             else:
-                ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenmenmiş."))
+                ucp_sonuc.append(("UYUMLU", "Madde 28(e): Sigorta poliçesi yükleme günü veya öncesinde düzenlenmiş."))
         except Exception:
             pass
 
@@ -324,7 +352,7 @@ def analiz_yurut():
     # RAPORLARI DOSYALARA YAZ
     word_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
     markdown_raporu_olustur(t_not, z_sonuc, k_tespit, k_eksik, e_sonuc, f_not, i_not, ucp_sonuc, h_var)
-    print("Incoterms emniyet kilitli analiz başarıyla tamamlandı.")
+    print("Mevzuat analizli ve profesyonel yorumlu rapor başarıyla üretildi.")
 
 if __name__ == "__main__":
     analiz_yurut()
