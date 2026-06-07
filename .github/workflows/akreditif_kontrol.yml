@@ -11,9 +11,10 @@ jobs:
   analiz_et:
     runs-on: ubuntu-latest
 
-    # Robotun yeni rapor dosyalarını repoya yazabilmesi için gerekli izin
+    # Kodun hem dosya yazması hem de repo içinde Issue (Hata Masası) açabilmesi için gerekli izinler
     permissions:
       contents: write
+      issues: write
 
     steps:
     - name: Repoyu Klonla
@@ -28,11 +29,30 @@ jobs:
       run: pip install python-docx
 
     - name: Akreditif Analiz Motorunu Çalıştır
+      id: analiz_step
       run: python kusat_kontrol.py
 
-    # Hem Word dosyasını hem de internetten okunacak Liste (Markdown) dosyasını repoya yükler
+    # Eğer analiz motoru rezerv bulup "hata kodu 1" ile çökerse, otomatik olarak repoda Issue açar
+    - name: Kritik Rezerv Durumunda Repo İçi Alarm Aç (Issues)
+      if: failure() && steps.analiz_step.outcome == 'failure'
+      uses: dacbd/create-issue-action@main
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        title: "🚨 ACİL: Akreditif Sürecinde Rezerv Riski Tespit Edildi!"
+        body: |
+          ### Dış Ticaret Operasyon Biriminin Dikkatine,
+          Son yüklenen evraklar ile akreditif şartları arasında **UCP 600** kurallarına aykırı uyumsuzluklar saptanmıştır. 
+          
+          **Yapılması Gerekenler:**
+          1. Ana sayfadaki `akreditif_analiz_raporu.md` dosyasını tarayıcıda açıp **[REZERV RİSKİ]** yazan satırları inceleyin.
+          2. Fatura ve konşimento üzerindeki hatalı vadi, tarih veya mal tanımı ibarelerini düzeltip repoya yeniden yükleyin.
+          3. Bankaya rezervli evrak teslim edilmesini önleyin.
+          
+          _Bu alarm, hatalar giderilip temiz rapor üretilene kadar açık kalmalıdır._
+
+    # Standart olarak raporları günceller
     - name: Raporları Otomatik Commit ve Push Et
-      if: always() # Analizde hata/rezerv çıksa bile rapor dosyalarını yüklemesi için
+      if: always()
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action Robotu"
