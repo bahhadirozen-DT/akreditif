@@ -270,7 +270,7 @@ def analiz_yurut():
 
     # 2. INCOTERMS & SİGORTA DENETİMİ
     incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
-    b_in = next((i for i in incoterms if i in kusat_upper), None)
+    b_in = next((term for term in incoterms if re.search(r'\b' + term + r'\b', kusat_upper)), None)
     
     if b_in:
         i_not.append(("BILGI", f"Saptanan teslim sekli: {b_in}"))
