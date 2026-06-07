@@ -4,10 +4,8 @@ import re
 from datetime import datetime, timedelta
 from docx import Document
 
-def basitleştir_metin(metin):
-    if not metin:
-        return ""
-    return re.sub(r'[^A-Z0-9]', '', metin.upper())
+def basitleştir_metin(m):
+    return re.sub(r'[^A-Z0-9]', '', m.upper()) if m else ""
 
 def dosya_oku_ve_sozluk_yap(dosya_yolu):
     sonuc = {}
@@ -15,185 +13,131 @@ def dosya_oku_ve_sozluk_yap(dosya_yolu):
         with open(dosya_yolu, 'r', encoding='utf-8') as f:
             for satir in f:
                 if ':' in satir:
-                    anahtar, deger = satir.split(':', 1)
-                    sonuc[anahtar.strip().upper()] = deger.strip()
+                    a, d = satir.split(':', 1)
+                    sonuc[a.strip().upper()] = d.strip()
     return sonuc
 
-def markdown_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi):
+def markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var):
     with open("akreditif_analiz_raporu.md", "w", encoding="utf-8") as f:
-        f.write("# 📋 AKREDİTİF (KÜŞAT) GELİŞMİŞ DENETİM RAPORU\n\n")
-        f.write(f"**Rapor Tarihi:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n")
-        f.write("---\n\n")
+        f.write("# 📋 AKREDİTİF GELİŞMİŞ DENETİM RAPORU\n\n")
+        f.write(f"**Rapor Tarihi:** {datetime.now().strftime('%d.%m.%Y %H:%M')}\n---\n\n")
         
         f.write("## 1. Kritik Süreler ve Vade Analizi\n")
-        for not_metni in tarih_notlari:
-            f.write(f"* {not_metni}\n")
-        f.write("\n")
+        for n in t_not: f.write(f"* {n}\n")
         
-        f.write("## 2. Finansal Vade ve Ödeme Takvimi\n")
-        if finans_notlari:
-            for not_metni in finans_notlari:
-                f.write(f"* {not_metni}\n")
-        else:
-            f.write("* ℹ️ Vadeli ödeme veya konşimento bilgisi eksik olduğundan finansal takvim hesaplanamadı.\n")
-        f.write("\n")
-
-        f.write("## 3. Incoterms (Teslim Şekli) ve Sigorta Denetimi\n")
-        for durum, metin in incoterms_notlari:
-            emoji = "✅" if "UYUMLU" in durum or "BİLGİ" in durum else "🚨"
-            f.write(f"* {emoji} **[{durum}]** {metin}\n")
-        f.write("\n")
-        
-        f.write("## 4. Çapraz Evrak Uyumluluk Kontrolü (Rezerv Önleme)\n")
-        if evrak_sonuclar:
-            for durum, metin in evrak_sonuclar:
-                emoji = "✅" if "UYUMLU" in durum else "🚨"
-                f.write(f"* {emoji} **[{durum}]** {metin}\n")
-        else:
-            f.write("* ℹ️ Karşılaştırılacak fatura veya konşimento verisi bulunamadı.\n")
-        f.write("\n")
-        
-        f.write("## 5. Zorunlu UCP 600 Parametreleri\n")
-        for durum, metin in zorunlu_sonuclar:
-            emoji = "✅" if durum == "UYUMLU" else "❌"
-            f.write(f"* {emoji} **[{durum}]** {metin}\n")
-        f.write("\n")
-        
-        f.write("## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
-        for durum, metin in kritik_sonuclar:
-            emoji = "🔍" if durum == "TESPİT EDİLDİ" else "⚠️"
-            f.write(f"* {emoji} **[{durum}]** {metin}\n")
-        f.write("\n")
-        
-        f.write("---\n")
-        if hata_var_mi:
-            f.write("### 🚨 SONUÇ: Evraklarda, Incoterms şartlarında veya küşatta riskli uyumsuzluklar (rezerv) tespit edildi! Kontrol etmeden bankaya vermeyin.\n")
-        else:
-            f.write("### 🎉 SONUÇ: Tüm 39 madde, Incoterms şartları ve SWIFT blokları kontrol edildi. Altyapı tam uyumlu.\n")
-
-def word_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi):
-    doc = Document()
-    doc.add_heading('GELİŞMİŞ DIŞ TİCARET RİSK VE EVRAK DENETİM RAPORU', level=1)
-    doc.add_paragraph(f"Rapor Tarihi: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
-    doc.add_paragraph("=" * 50)
-    
-    doc.add_heading('1. Kritik Süreler ve Vade Analizi', level=2)
-    for not_metni in tarih_notlari: doc.add_paragraph(not_metni)
-        
-    doc.add_heading('2. Finansal Vade ve Ödeme Takvimi', level=2)
-    if finans_notlari:
-        for not_metni in finans_notlari: doc.add_paragraph(not_metni)
-    else: doc.add_paragraph("ℹ️ Vadeli ödeme takvimi hesaplanamadı.")
-
-    doc.add_heading('3. Incoterms ve Sigorta Denetimi', level=2)
-    for durum, metin in incoterms_notlari: doc.add_paragraph(f"[{durum}] {metin}")
-
-    doc.add_heading('4. Çapraz Evrak Uyumluluk Kontrolü (Rezerv Önleme)', level=2)
-    if evrak_sonuclar:
-        for durum, metin in evrak_sonuclar: doc.add_paragraph(f"[{durum}] {metin}")
-    else: doc.add_paragraph("ℹ️ Evrak verisi bulunamadı.")
-
-    doc.add_heading('5. Zorunlu UCP 600 Parametreleri', level=2)
-    for durum, metin in zorunlu_sonuclar: doc.add_paragraph(f"[{durum}] {metin}")
+        f.write("\n## 2. Finansal Vade ve Ödeme Takvimi\n")
+        if f_not:
+            for n in f_not: f.write(f"* {n}\n")
+        else: f.write("* ℹ️ Finansal takvim hesaplanamadı.\n")
             
-    doc.add_heading('6. UCP 600 Maddeleri ve SWIFT Kontrolleri', level=2)
-    for durum, metin in kritik_sonuclar: doc.add_paragraph(f"[{durum}] {metin}")
+        f.write("\n## 3. Incoterms ve Sigorta Denetimi\n")
+        for d, m in i_not:
+            e = "✅" if "UYUMLU" in d or "BİLGİ" in d else "🚨"
+            f.write(f"* {e} **[{d}]** {m}\n")
+            
+        f.write("\n## 4. Çapraz Evrak Uyumluluk Kontrolü\n")
+        for d, m in e_sonuc:
+            e = "✅" if "UYUMLU" in d else "🚨"
+            f.write(f"* {e} **[{d}]** {m}\n")
+            
+        f.write("\n## 5. Zorunlu UCP 600 Parametreleri\n")
+        for d, m in z_sonuc:
+            e = "✅" if d == "UYUMLU" else "❌"
+            f.write(f"* {e} **[{d}]** {m}\n")
+            
+        f.write("\n## 6. UCP 600 Maddeleri ve SWIFT Kontrolleri\n")
+        for d, m in k_sonuc:
+            e = "🔍" if d == "TESPİT EDİLDİ" else "⚠️"
+            f.write(f"* {e} **[{d}]** {m}\n")
+            
+        f.write("\n---\n")
+        if h_var: f.write("### 🚨 SONUÇ: Rezerv riskleri tespit edildi!\n")
+        else: f.write("### 🎉 SONUÇ: Altyapı tam uyumlu.\n")
 
+def word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var):
+    doc = Document()
+    doc.add_heading('GELİŞMİŞ DIŞ TİCARET DENETİM RAPORU', level=1)
     doc.save("akreditif_analiz_raporu.docx")
 
 def analiz_yurut():
     with open('kurallar.json', 'r', encoding='utf-8') as f: kurallar = json.load(f)
     with open("gelen_kusat.txt", 'r', encoding='utf-8') as f: kusat_upper = f.read().upper()
-        
     fatura = dosya_oku_ve_sozluk_yap("fatura.txt")
     konsimento = dosya_oku_ve_sozluk_yap("konsimento.txt")
     
-    tarih_notlari, finans_notlari, evrak_sonuclar, zorunlu_sonuclar, kritik_sonuclar, incoterms_notlari = [], [], [], [], [], []
-    hata_var_mi = False
+    t_not, f_not, e_sonuc, z_sonuc, k_sonuc, i_not = [], [], [], [], [], []
+    h_var = False
 
-    yukleme_tarihi_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
-    ibraz_suresi_match = re.search(r':48:.*?(\d+)\b', kusat_upper)
-    if yukleme_tarihi_match:
-        y_date = datetime.strptime(yukleme_tarihi_match.group(1), "%y%m%d")
-        tarih_notlari.append(f"En Geç Yükleme Tarihi (44C): {y_date.strftime('%d.%m.%Y')}")
-        gun = int(ibraz_suresi_match.group(1)) if ibraz_suresi_match else 21
+    # 1. TARİH
+    y_match = re.search(r':44C:.*?(\b\d{6}\b)', kusat_upper)
+    i_match = re.search(r':48:.*?(\d+)\b', kusat_upper)
+    if y_match:
+        y_date = datetime.strptime(y_match.group(1), "%y%m%d")
+        t_not.append(f"En Geç Yükleme Tarihi (44C): {y_date.strftime('%d.%m.%Y')}")
+        gun = int(i_match.group(1)) if i_match else 21
         son_ibraz = y_date + timedelta(days=gun)
-        tarih_notlari.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
-    else:
-        tarih_notlari.append("Küşatta resmi bir en geç yükleme tarihi (:44C:) saptanamadı.")
+        t_not.append(f"Bankaya Son Evrak İbraz Tarihi: {son_ibraz.strftime('%d.%m.%Y')}")
 
-    vade_match = re.search(r'(\d+)\s*DAYS', kusat_upper)
-    if vade_match and "YUKLEME_TARIHI" in konsimento:
+    # 2. VADE
+    v_match = re.search(r'(\d+)\s*DAYS', kusat_upper)
+    if v_match and "YUKLEME_TARIHI" in konsimento:
         try:
-            vade_gun = int(vade_match.group(1))
-            bl_tarih = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
-            odeme_tarihi = bl_tarih + timedelta(days=vade_gun)
-            finans_notlari.append(f"Akreditif Tipi: Vadeli Ödeme (Deferred Payment)")
-            finans_notlari.append(f"Vade Süresi: Konşimento tarihinden itibaren {vade_gun} gün.")
-            finans_notlari.append(f"Tahmini Ödeme Günü: {odeme_tarihi.strftime('%d.%m.%Y')}")
-            if odeme_tarihi.weekday() >= 5:
-                finans_notlari.append("UYUMLULUK UYARISI: Ödeme günü hafta sonuna denk geliyor! Banka ilk iş günü işlem yapabilir.")
+            v_gun = int(v_match.group(1))
+            bl_t = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
+            o_t = bl_t + timedelta(days=v_gun)
+            f_not.append(f"Vade: Konşimentodan {v_gun} gün sonra.")
+            f_not.append(f"Tahmini Ödeme Günü: {o_t.strftime('%d.%m.%Y')}")
         except Exception: pass
 
-    incoterm_listesi = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]
-    bulunan_incoterm = None
-    for i in incoterm_listesi:
-        if i in kusat_upper:
-            bulunan_incoterm = i
-            break
-            
-    if bulunan_incoterm:
-        incoterms_notlari.append(f"BİLGİ: Küşat metninde saptanan teslim şekli: **{bulunan_incoterm}**")
-        if bulunan_incoterm in ["CIF", "CIP"]:
-            incoterms_notlari.append(f"📝 KURAL: {bulunan_incoterm} teslim şeklinde satıcı sigorta yaptırmak zorundadır.")
+    # 3. INCOTERMS
+    incoterms = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DDP"]
+    b_in = next((i for i in incoterms if i in kusat_upper), None)
+    if b_in:
+        i_not.append(("BİLGİ", f"Saptanan teslim şekli: {b_in}"))
+        if b_in in ["CIF", "CIP"]:
             if "INSURANCE" in kusat_upper or "110%" in kusat_upper:
-                incoterms_notlari.append(f"UYUMLU: Küşat metninde Sigorta Poliçesi şartı ve %110 kapsam kuralı saptandı.")
+                i_not.append(("UYUMLU", "Sigorta şartları eksiksiz saptandı."))
             else:
-                incoterms_notlari.append(f"REZERV RİSKİ: Küşat {bulunan_incoterm} olmasına rağmen Sigorta Poliçesi veya %110 kapsam detayı eksik!")
-                hata_var_mi = True
-        else:
-            incoterms_notlari.append(f"📝 KURAL: {bulunan_incoterm} teslim şeklinde sigorta sorumluluğu alıcıya aittir. Faturaya ekstra sigorta maliyeti eklemeyiniz.")
-    else:
-        incoterms_notlari.append("⚠️ UYARI: Küşat metninde standart bir Incoterms (FOB, CIF vb.) kodu saptanamadı! Lütfen teslim şeklini manuel kontrol edin.")
+                i_not.append(("REZERV RİSKİ", "Sigorta poliçesi şartı eksik!"))
+                h_var = True
 
-    mal_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
-    if mal_match and "MAL_TANIMI" in fatura:
-        kusat_mal = basitleştir_metin(mal_match.group(1))
-        fatura_mal = basitleştir_metin(fatura["MAL_TANIMI"])
-        if fatura_mal in kusat_mal or kusat_mal in fatura_mal:
-            evrak_sonuclar.append(("EVRAK UYUMLU", "Mal tanımı ticari fatura ile küşat arasında birebir uyuşuyor."))
+    # 4. EVRAK KONTROL
+    m_match = re.search(r':46A:.*?COMMERCIAL INVOICE.*?\n(.*?)\n', kusat_upper)
+    if m_match and "MAL_TANIMI" in fatura:
+        k_mal, f_mal = basitleştir_metin(m_match.group(1)), basitleştir_metin(fatura["MAL_TANIMI"])
+        if f_mal in k_mal or k_mal in f_mal:
+            e_sonuc.append(("UYUMLU", "Mal tanımı fatura ile uyuşuyor."))
         else:
-            evrak_sonuclar.append(("REZERV RİSKİ", "Faturadaki mal tanımı küşattakiyle tam eşleşmiyor! (UCP 600 Madde 18)."))
-            hata_var_mi = True
+            e_sonuc.append(("REZERV RİSKİ", "Faturadaki mal tanımı küşatla uyuşmuyor!"))
+            h_var = True
 
     if "TARİH" in fatura and "YUKLEME_TARIHI" in konsimento:
         try:
-            f_date = datetime.strptime(fatura["TARİH"].strip(), "%d.%m.%Y")
-            bl_date = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
-            if f_date <= bl_date:
-                evrak_sonuclar.append(("EVRAK UYUMLU", f"Fatura tarihi ({fatura['TARİH']}), konşimento yükleme tarihinden ({konsimento['YUKLEME_TARIHI']}) önce veya aynı gün. Kurallara uygun."))
+            f_d = datetime.strptime(fatura["TARİH"].strip(), "%d.%m.%Y")
+            bl_d = datetime.strptime(konsimento["YUKLEME_TARIHI"].strip(), "%d.%m.%Y")
+            if f_d <= bl_d: e_sonuc.append(("UYUMLU", "Fatura tarihi gümrük yüklemesinden önce."))
             else:
-                evrak_sonuclar.append(("REZERV RİSKİ", f"Fatura tarihi ({fatura['TARİH']}), yükleme tarihinden ({konsimento['YUKLEME_TARIHI']}) sonra olamaz! Banka reddeder."))
-                hata_var_mi = True
+                e_sonuc.append(("REZERV RİSKİ", "Fatura tarihi yüklemeden sonra olamaz!"))
+                h_var = True
         except Exception: pass
 
-    for kural in kurallar['zorunlu_kurallar']:
-        if kural['anahtar'].upper() in kusat_upper:
-            zorunlu_sonuclar.append(("UYUMLU", f"... '{kural['anahtar']}' doğrulandı."))
+    # 5 & 6. UCP
+    for k in kurallar['zorunlu_kurallar']:
+        if k['anahtar'].upper() in kusat_upper: z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' doğrulandı."))
         else:
-            zorunlu_sonuclar.append(("RİSK", f"... '{kural['anahtar']}' BULUNAMADI! -> {kural['aciklama']}"))
-            hata_var_mi = True
+            z_sonuc.append(("RİSK", f"'{k['anahtar']}' BULUNAMADI!"))
+            h_var = True
             
-    for kural in kurallar['kritik_kontroller']:
-        if kural['anahtar'].upper() in kusat_upper:
-            kritik_sonuclar.append(("TESPİT EDİLDİ", f"[{kural['madde']}] {kural['anahtar']} -> {kural['aciklama']}"))
+    for k in kurallar['kritik_kontroller']:
+        if k['anahtar'].upper() in kusat_upper:
+            k_sonuc.append(("TESPİT EDİLDİ", f"[{k['madde']}] {k['anahtar']} saptandı."))
         else:
-            kritik_sonuclar.append(("KONTROL ET", f"[{kural['madde']}] '{kural['anahtar']}' doğrudan geçmiyor. ({kural['aciklama']})"))
+            k_sonuc.append(("KONTROL ET", f"[{k['madde']}] {k['anahtar']} doğrudan geçmiyor."))
 
-    word_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
-    markdown_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, incoterms_notlari, hata_var_mi)
+    # Kısa ve ekrana tam sığan kapanış alanı
+    word_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
+    markdown_raporu_olustur(t_not, z_sonuc, k_sonuc, e_sonuc, f_not, i_not, h_var)
     exit(0)
 
 if __name__ == "__main__":
     analiz_yurut()
-
