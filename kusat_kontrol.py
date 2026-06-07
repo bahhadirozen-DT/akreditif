@@ -182,8 +182,11 @@ def analiz_yurut():
     word_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, hata_var_mi)
     markdown_raporu_olustur(tarih_notlari, zorunlu_sonuclar, kritik_sonuclar, evrak_sonuclar, finans_notlari, hata_var_mi)
     
-    # Raporların GitHub'a her koşulda yüklenebilmesi için Actions'ı başarıyla sonlandırıyoruz
-    exit(0)
+    # Rezerv varsa sistemi Actions üzerinde durdur ki üstteki adım tetiklensin ve Issue açsın
+    if hata_var_mi:
+        exit(1)
+    else:
+        exit(0)
 
 if __name__ == "__main__":
     analiz_yurut()
