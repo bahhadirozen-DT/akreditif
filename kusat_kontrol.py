@@ -231,7 +231,7 @@ def analiz_yurut():
 
     # 5 & 6. ESKİ JSON TABANLI UCP KONTROLLERİ
     for k in kurallar['zorunlu_kurallar']:
-        if k['anahtar'].upper() in kusat_upper: 
+        if k['anahtar'].upper() in kusat_upper:
             z_sonuc.append(("UYUMLU", f"'{k['anahtar']}' dogrulandi."))
         else:
             z_sonuc.append(("RISK", f"'{k['anahtar']}' BULUNAMADI!"))
