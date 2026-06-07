@@ -1,4 +1,78 @@
-- name: Install Tesseract OCR
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng
+name: Akreditif Dinamik Analiz Motoru
+
+on:
+  # 1. Burası Sihirli Alan: Web arayüzüne dosya seçme butonları ekler!
+  workflow_dispatch:
+    inputs:
+      kusat_dosyasi:
+        description: 'Akreditif (Swift/Kuşat) Dosya Adı (Örn: kusat.pdf veya yuklenen_dosyalar/kusat.txt)'
+        required: true
+        default: 'yuklenen_dosyalar/gelen_kusat.pdf'
+      fatura_dosyasi:
+        description: 'Fatura Dosya Adı (Örn: fatura_123.docx)'
+        required: false
+        default: 'yuklenen_dosyalar/fatura.pdf'
+      konsimento_dosyasi:
+        description: 'Konşimento Dosya Adı (Örn: bl_belgesi.png)'
+        required: false
+        default: 'yuklenen_dosyalar/konsimento.pdf'
+      sigorta_dosyasi:
+        description: 'Sigorta Poliçesi Dosya Adı (Örn: sigorta_orj.xlsx)'
+        required: false
+        default: 'yuklenen_dosyalar/sigorta.pdf'
+
+jobs:
+  analiz_et:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Repo Kodlarını Çek
+      uses: actions/checkout@v3
+
+    - name: Linux Sunucuya OCR Motorunu Kur
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tesseract-ocr tesseract-ocr-tur tesseract-ocr-eng
+
+    - name: Python Ortamını Hazırla
+      uses: actions/setup-python@v4
+      with:
+        python-python-version: '3.10'
+
+    - name: Bağımlılıkları Yükle
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    # 2. Burası Sihirli Alan: Senin panelden yazdığın farklı isimdeki dosyaları 
+    # sistemin anlayacağı standart isimlere arka planda KOPYALAR! (Asılları bozulmaz)
+    name: Dosya İsimlerini Dinamik Eşitle
+      run: |
+        python -c "
+        import os, shutil
+        
+        inputs = {
+            'gelen_kusat': '${{ github.event.inputs.kusat_dosyasi }}',
+            'fatura': '${{ github.event.inputs.fatura_dosyasi }}',
+            'konsimento': '${{ github.event.inputs.konsimento_dosyasi }}',
+            'sigorta': '${{ github.event.inputs.sigorta_dosyasi }}'
+        }
+        
+        for hedef_ad, kaynak_yolu in inputs.items():
+            if kaynak_yolu and os.path.exists(kaynak_yolu):
+                uzanti = os.path.splitext(kaynak_yolu)[1]
+                # Dosyayı sistemin okuyacağı klasöre kopyala
+                shutil.copy(kaynak_yolu, f'yuklenen_dosyalar/{hedef_ad}{uzanti}')
+                print(f'[BAĞLANDI] {kaynak_yolu} -> yuklenen_dosyalar/{hedef_ad}{uzanti}')
+        "
+
+    - name: Yapay Zeka Analiz Motorunu Çalıştır
+      run: python kusat_kontrol.py
+
+    - name: Üretilen Uzman Raporlarını Repoya Geri Kaydet
+      run: |
+        git config --global user.name 'Yapay Zeka Denetçi'
+        git config --global user.email 'ai-auditor@github.com'
+        git add akreditif_analiz_raporu.md akreditif_analiz_raporu.docx
+        git commit -m "🤖 Yapay Zeka Analiz Raporu Güncellendi [Automated]" || echo "Değişiklik yok."
+        git push
