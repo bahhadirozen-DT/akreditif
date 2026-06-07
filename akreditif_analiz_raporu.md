@@ -1,6 +1,6 @@
 # 📋 AKREDİTİF (KÜŞAT) GELİŞMİŞ DENETİM RAPORU
 
-**Rapor Tarihi:** 07.06.2026 17:31
+**Rapor Tarihi:** 07.06.2026 17:42
 ---
 
 ## 1. Kritik Süreler ve Vade Analizi
